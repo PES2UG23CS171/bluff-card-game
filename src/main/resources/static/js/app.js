@@ -228,7 +228,7 @@
     try {
       while (App.queue.length) {
         const update = App.queue.shift();
-        await applyUpdate(update, App.queue.length > 2);
+        await applyUpdate(update, App.queue.length > 2 || document.hidden);
       }
     } catch (e) {
       console.error(e);
@@ -261,9 +261,9 @@
     // still get the previous state to know where cards came from.
     App.state = state;
     const dealing = events.some(ev => ev.kind === 'deal');
+    if (events.some(ev => ev.kind === 'roundStart')) App.chosenRank = null;
     if (dealing) {
       App.selected.clear();
-      App.chosenRank = null;
       renderTable(state, { empty: true });
     } else if (entering || !previous || previous.room.phase === 'LOBBY') {
       renderTable(state);
@@ -478,7 +478,6 @@
       decks: Math.min(8, Math.max(1, parseInt(f.decks.value, 10) || 1)),
       cardsPerPlayer: Math.max(1, parseInt(f.cardsPerPlayer.value, 10) || 1),
       jokers: f.jokers.checked,
-      rankMode: f.rankMode.value,
       callWindowSeconds: Math.min(30, Math.max(0, parseInt(f.callWindowSeconds.value, 10) || 0)),
     };
   }
@@ -540,10 +539,8 @@
     const g = state.game;
     if (!g) return '';
     if (g.phase === 'GAME_OVER') return 'Game over';
-    const rank = g.currentRank ? ' · playing ' + g.currentRank + 's' : '';
-    if (!g.turnPlayerId) return 'Waiting for a player to come back...' + rank;
-    const who = g.turnPlayerId === App.me.id ? 'Your turn' : nameOf(g.turnPlayerId, state) + "'s turn";
-    return who + rank;
+    if (!g.turnPlayerId) return 'Waiting for a player to come back...';
+    return g.turnPlayerId === App.me.id ? 'Your turn' : nameOf(g.turnPlayerId, state) + "'s turn";
   }
 
   function seatPositions(count) {
@@ -653,11 +650,30 @@
       label = esc(nameOf(g.turnPlayerId, state)) + ' open' + (g.turnPlayerId === App.me.id ? '' : 's') + ' the round';
     }
     $('#pot-label').innerHTML = label;
+    renderRoundRank(opts.empty ? null : g.currentRank);
 
     const discard = $('#discard-pile');
     discard.classList.toggle('hidden', !g.setAsideCards);
     setPile($('.discard-cards', discard), g.setAsideCards, 5, 3, 3);
     $('#discard-count').textContent = plural(g.setAsideCards, 'card') + ' set aside';
+  }
+
+  /** Shows the rank the opener claimed on a badge next to the pot, so everybody can see it. */
+  function renderRoundRank(rank) {
+    const badge = $('#round-rank');
+    if (!rank) {
+      badge.classList.add('hidden');
+      badge.dataset.rank = '';
+      return;
+    }
+    if (badge.dataset.rank !== rank) {
+      badge.dataset.rank = rank;
+      $('.rr-rank', badge).textContent = rank;
+      badge.classList.remove('hidden');
+      badge.style.animation = 'none';
+      void badge.offsetWidth; // restart the pop animation
+      badge.style.animation = '';
+    }
   }
 
   function renderSpectators(state) {
@@ -743,8 +759,7 @@
   function suggestRank(card) {
     const g = App.state.game;
     if (!g) return;
-    const locked = g.rankMode === 'ROUND' && g.currentRank;
-    if (!locked && !App.chosenRank && card.rank !== 'JOKER') App.chosenRank = card.rank;
+    if (!g.currentRank && !App.chosenRank && card.rank !== 'JOKER') App.chosenRank = card.rank;
   }
 
   function canSelect() {
@@ -755,8 +770,7 @@
   function effectiveRank() {
     const g = App.state && App.state.game;
     if (!g) return null;
-    if (g.rankMode === 'ROUND' && g.currentRank) return g.currentRank;
-    return App.chosenRank;
+    return g.currentRank || App.chosenRank;
   }
 
   // ------------------------------------------------------------ controls
@@ -778,13 +792,12 @@
         picker.appendChild(b);
       });
     }
-    const locked = g.rankMode === 'ROUND' && g.currentRank;
-    const eff = effectiveRank();
-    Array.from(picker.children).forEach(b => {
-      b.disabled = !!locked && b.dataset.rank !== g.currentRank;
-      b.classList.toggle('active', b.dataset.rank === eff);
-    });
-    $('#rank-label').textContent = locked ? 'This round is ' + g.currentRank + 's:' : 'Claim a rank:';
+    // Only whoever opens the round picks a rank; afterwards the badge on the table shows it.
+    const opening = !g.currentRank && g.turnPlayerId === App.me.id && g.phase === 'PLAYING';
+    $('#rank-block').classList.toggle('hidden', !opening);
+    const chosen = App.chosenRank;
+    Array.from(picker.children).forEach(b => b.classList.toggle('active', b.dataset.rank === chosen));
+    $('#rank-label').textContent = 'You open the round. Claim a rank:';
   }
 
   function refreshControls(stateArg) {
@@ -814,7 +827,7 @@
     const hint = $('#turn-hint');
     if (!active) hint.textContent = myPlayer && myPlayer.finishPlace ? 'You are done. Sit back and watch.' : '';
     else if (myTurn && waiting) hint.textContent = 'Your turn: others may call bluff first...';
-    else if (myTurn) hint.textContent = g.mustPlay ? 'Your turn: open the round!' : 'Your turn!';
+    else if (myTurn) hint.textContent = g.mustPlay ? 'Your turn: open the round!' : 'Your turn: add ' + g.currentRank + 's or pass';
     else hint.textContent = '';
 
     $('#hand').classList.toggle('locked', !active);
@@ -977,6 +990,9 @@
       input.value = '';
     });
 
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) FX.clearLayer();
+    });
     window.addEventListener('resize', () => {
       if (App.state && App.screen === 'game' && App.state.you.seated) renderHand(App.state.you.hand);
     });

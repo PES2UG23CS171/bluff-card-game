@@ -10,10 +10,11 @@ create a room, share the code, play.
 
 - Rooms with six-letter codes and shareable invite links; players pick their own nickname.
 - Host-configurable rules: number of decks, cards dealt to each player (drawn at random
-  from the shuffled decks), jokers on or off (jokers count as any rank), whether the rank is
-  fixed per round or declared with every play, and a "call window" that stops the next player
-  from acting for a few seconds so everyone gets a chance to call a bluff.
-- Play any number of cards from your hand and announce any rank, whether you hold it or not.
+  from the shuffled decks), jokers on or off (jokers count as any rank), and a "call window"
+  that stops the next player from acting for a few seconds so everyone gets a chance to call
+  a bluff.
+- Whoever opens a round plays any number of cards and announces any rank, whether they hold
+  it or not; the rank is shown on the table and everyone else in that round claims the same.
 - Anyone still holding cards can call bluff until the next player acts; the pot goes to
   whoever was wrong.
 - Pass instead of playing; when everybody else has passed, the pot is set aside and the last
@@ -68,9 +69,9 @@ While working on the front-end, the `dev` profile serves the static files straig
 3. Until the next player acts, every other player who still holds cards can **call bluff**. The
    play is revealed: if it was honest the caller takes the entire pot, if it was a lie the liar
    does. The honest player (or the successful caller) then opens a new round.
-4. Otherwise the next player either adds cards to the pot with the same announcement (round
-   mode) or their own announcement (free mode), or **passes**. Once everyone but the last
-   player has passed, the pot is set aside and the last player to play opens a new round.
+4. Otherwise the next player either adds cards to the pot claiming the round's rank, or
+   **passes**. Once everyone but the last player has passed, the pot is set aside and the last
+   player to play opens a new round.
 5. When you put down your last cards you are done as soon as the next player acts without
    calling (or calls and finds you honest). The first player out wins; the vote to restart opens
    at that moment and passes only if everyone says yes. Otherwise the game continues until a
@@ -83,14 +84,13 @@ While working on the front-end, the `dev` profile serves the static files straig
 | Decks | How many 52-card decks are shuffled together (1–8). |
 | Cards per player | How many cards each player is dealt from the shuffled pile. The lobby shows the maximum for the current number of players. |
 | Jokers | Adds two jokers per deck. A joker matches whatever rank was announced. |
-| Rank rule | **Round rank**: whoever opens a round picks the rank and everyone else in that round claims the same. **Free**: every play announces its own rank. |
 | Call window | Seconds the next player has to wait after a play so others can call bluff (0–30; 0 disables the wait). Calling is never delayed. |
 
 ## Project layout
 
 ```
 src/main/java/com/bluffgame
-├── model/    Card, Rank, Suit, DeckFactory, GameSettings, RankMode
+├── model/    Card, Rank, Suit, DeckFactory, GameSettings
 ├── engine/   BluffGame: the rules, independent of any transport; emits GameEvents
 ├── room/     Room, RoomPlayer, RoomService (lobbies, seats, chat, per-player state views)
 └── ws/       WebSocket endpoint (/ws), session registry and configuration
@@ -116,7 +116,7 @@ Server → client: `welcome {playerId, token, roomCode, nickname}`, `update {eve
 
 ## Tests
 
-- `BluffGameTest` scripts hands through every rule: dealing, turn order, round/free rank modes,
+- `BluffGameTest` scripts hands through every rule: dealing, turn order, the round rank,
   passing and set-aside, honest and caught calls, jokers, the call window, finishing, game over,
   the restart vote and offline/departed players.
 - `RoomServiceTest` covers rooms, joining, token reconnection, host powers, spectators, chat

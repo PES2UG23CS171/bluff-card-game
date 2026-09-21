@@ -77,7 +77,6 @@ final class StateView {
         Map<String, Object> view = new LinkedHashMap<>();
         view.put("phase", game.phase().name());
         view.put("round", game.round());
-        view.put("rankMode", game.settings().rankMode());
         view.put("currentRank", game.currentRank());
         view.put("turnPlayerId", game.turnPlayerId());
         view.put("mustPlay", game.mustPlay());

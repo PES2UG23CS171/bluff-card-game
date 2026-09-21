@@ -83,10 +83,12 @@ window.FX = (() => {
     };
     if (opts.delay) await sleep(opts.delay);
     el.style.opacity = '1';
+    const duration = opts.duration || 450;
     const anim = el.animate(
       [{ transform: transformOf(el._pos) }, { transform: transformOf(to) }],
-      { duration: opts.duration || 450, easing: opts.easing || EASE, fill: 'forwards' });
-    await anim.finished.catch(() => {});
+      { duration, easing: opts.easing || EASE, fill: 'forwards' });
+    // A hidden or throttled tab may never report the animation as finished; never let that stall the game.
+    await Promise.race([anim.finished.catch(() => {}), sleep(duration + 1500)]);
     el._pos = to;
     el.style.transform = transformOf(to);
     anim.cancel();
@@ -281,7 +283,7 @@ window.FX = (() => {
   // ------------------------------------------------------------ dispatcher
 
   async function animate(ev, state, previous, ctx) {
-    if (!state.game) return;
+    if (!state.game || document.hidden) return;
     try {
       switch (ev.kind) {
         case 'deal': return await deal(ev, state, ctx);

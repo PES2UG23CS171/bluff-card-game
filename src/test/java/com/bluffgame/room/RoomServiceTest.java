@@ -6,7 +6,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.bluffgame.engine.GameException;
 import com.bluffgame.model.GameSettings;
 import com.bluffgame.model.Rank;
-import com.bluffgame.model.RankMode;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -135,7 +134,7 @@ class RoomServiceTest {
     void onlyTheHostChangesSettingsAndStartsAndNeedsTwoPlayers() {
         RoomService.Joined host = service.create("Alice", "s1");
         String code = host.room().code();
-        GameSettings settings = new GameSettings(2, 12, false, RankMode.FREE, 3);
+        GameSettings settings = new GameSettings(2, 12, false, 3);
 
         assertThatThrownBy(() -> service.startGame(code, host.player().id())).hasMessageContaining("two connected players");
         RoomService.Joined bob = service.join(code, "Bob", null, "s2");
@@ -212,7 +211,7 @@ class RoomServiceTest {
         RoomService.Joined host = service.create("Alice", "s1");
         String code = host.room().code();
         RoomService.Joined bob = service.join(code, "Bob", null, "s2");
-        service.updateSettings(code, host.player().id(), new GameSettings(1, 5, false, RankMode.ROUND, 0));
+        service.updateSettings(code, host.player().id(), new GameSettings(1, 5, false, 0));
         service.startGame(code, host.player().id());
 
         String onTurn = (String) ((Map<?, ?>) outbound.lastState(host.player().id()).get("game")).get("turnPlayerId");
@@ -260,7 +259,7 @@ class RoomServiceTest {
         RoomService.Joined host = service.create("Alice", "s1");
         String code = host.room().code();
         RoomService.Joined bob = service.join(code, "Bob", null, "s2");
-        service.updateSettings(code, host.player().id(), new GameSettings(1, 1, false, RankMode.ROUND, 0));
+        service.updateSettings(code, host.player().id(), new GameSettings(1, 1, false, 0));
         service.startGame(code, host.player().id());
         String onTurn = (String) ((Map<?, ?>) outbound.lastState(host.player().id()).get("game")).get("turnPlayerId");
         String other = onTurn.equals(host.player().id()) ? bob.player().id() : host.player().id();

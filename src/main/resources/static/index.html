@@ -30,7 +30,7 @@
       <details class="rules">
         <summary>How to play</summary>
         <ul>
-          <li>On your turn, put any number of cards face down in the pot and announce a rank, whether or not you really hold it.</li>
+          <li>Whoever opens a round puts any number of cards face down in the pot and announces a rank, whether or not they really hold it. Everyone after them in that round claims the same rank.</li>
           <li>Until the next player acts, anyone still holding cards can <b>call bluff</b>. The play is revealed: if it was honest the caller takes the whole pot, otherwise the liar does.</li>
           <li>You may <b>pass</b> instead of playing. When everyone else has passed, the pot is set aside and the last player to play opens a new round.</li>
           <li>The first player to get rid of all their cards wins. Keep going until one loser is left, or vote to restart.</li>
@@ -71,12 +71,6 @@
             <label class="check">
               <input type="checkbox" name="jokers">
               Include jokers (two per deck, they count as any rank)
-            </label>
-            <label class="wide">Rank rule
-              <select name="rankMode">
-                <option value="ROUND">Round rank: whoever opens a round picks the rank, everyone else claims the same</option>
-                <option value="FREE">Free: every play announces its own rank</option>
-              </select>
             </label>
             <label>Call window (seconds)
               <input type="number" name="callWindowSeconds" min="0" max="30">
@@ -119,6 +113,11 @@
         <div id="pot">
           <div id="pot-cards"></div>
           <div id="pot-empty">pot</div>
+        </div>
+        <div id="round-rank" class="hidden" title="Every play this round has to claim this rank">
+          <span class="rr-label">this round</span>
+          <span class="rr-rank"></span>
+          <span class="rr-suits">&#9824;<span class="red">&#9829;</span><span class="red">&#9830;</span>&#9827;</span>
         </div>
         <div id="pot-count"></div>
         <div id="pot-label"></div>

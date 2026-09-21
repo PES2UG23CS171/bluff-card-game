@@ -3,7 +3,6 @@ package com.bluffgame.ws;
 import com.bluffgame.engine.GameException;
 import com.bluffgame.model.GameSettings;
 import com.bluffgame.model.Rank;
-import com.bluffgame.model.RankMode;
 import com.bluffgame.room.RoomService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -104,18 +103,10 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
     private static GameSettings parseSettings(JsonNode msg) {
         JsonNode s = msg.path("settings");
-        String mode = s.path("rankMode").asText("ROUND").toUpperCase(Locale.ROOT);
-        RankMode rankMode;
-        try {
-            rankMode = RankMode.valueOf(mode);
-        } catch (IllegalArgumentException e) {
-            throw new GameException("Unknown rank mode " + mode);
-        }
         return new GameSettings(
                 s.path("decks").asInt(1),
                 s.path("cardsPerPlayer").asInt(1),
                 s.path("jokers").asBoolean(true),
-                rankMode,
                 s.path("callWindowSeconds").asInt(5));
     }
 

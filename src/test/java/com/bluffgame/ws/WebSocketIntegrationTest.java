@@ -86,7 +86,7 @@ class WebSocketIntegrationTest {
         assertThat(bob.next("error").get("message").asText()).contains("Only the host");
 
         alice.send(Map.of("type", "settings", "settings",
-                Map.of("decks", 1, "cardsPerPlayer", 4, "jokers", false, "rankMode", "FREE", "callWindowSeconds", 0)));
+                Map.of("decks", 1, "cardsPerPlayer", 4, "jokers", false, "callWindowSeconds", 0)));
         alice.lastUpdate();
         alice.send(Map.of("type", "start"));
 

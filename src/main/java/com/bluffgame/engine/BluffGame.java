@@ -4,7 +4,6 @@ import com.bluffgame.model.Card;
 import com.bluffgame.model.DeckFactory;
 import com.bluffgame.model.GameSettings;
 import com.bluffgame.model.Rank;
-import com.bluffgame.model.RankMode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -19,7 +18,8 @@ import java.util.function.LongSupplier;
  * The rules of Bluff for one game, independent of any transport.
  *
  * <p>A round starts with one player putting one or more face-down cards in the pot while
- * announcing a rank. Until the next player acts, anyone still holding cards may call bluff:
+ * announcing a rank; everyone who follows in that round claims the same rank. Until the next
+ * player acts, anyone still holding cards may call bluff:
  * the play is revealed, and whoever was wrong takes the whole pot. Players may pass instead
  * of playing; once everyone else has passed, the pot is set aside and the last player to
  * play opens a new round. Emptying your hand (and surviving the call window) means you are
@@ -187,7 +187,7 @@ public final class BluffGame {
         if (declared == null || !declared.isDeclarable()) {
             throw new GameException("Pick the rank you are claiming");
         }
-        if (settings.rankMode() == RankMode.ROUND && roundRank != null && declared != roundRank) {
+        if (roundRank != null && declared != roundRank) {
             throw new GameException("This round is being played as " + roundRank.label() + "s");
         }
         Set<Integer> wanted = new LinkedHashSet<>(cardIds);
@@ -208,7 +208,7 @@ public final class BluffGame {
             return;
         }
         seat.hand.removeAll(chosen);
-        if (settings.rankMode() == RankMode.ROUND && roundRank == null) {
+        if (roundRank == null) {
             roundRank = declared;
         }
         Play play = new Play(playerId, List.copyOf(chosen), declared, clock.getAsLong());
@@ -559,12 +559,9 @@ public final class BluffGame {
         return turnPlayerId;
     }
 
-    /** The rank plays in this round must claim (round mode), or the rank of the latest play (free mode). */
+    /** The rank every play in this round has to claim, chosen by whoever opened it; null until the first play. */
     public Rank currentRank() {
-        if (settings.rankMode() == RankMode.ROUND) {
-            return roundRank;
-        }
-        return lastPlay == null ? null : lastPlay.declaredRank();
+        return roundRank;
     }
 
     /** Whether the player on turn has to play (an empty pot cannot be passed on). */

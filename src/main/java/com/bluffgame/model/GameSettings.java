@@ -6,11 +6,10 @@ package com.bluffgame.model;
  * @param decks             how many 52-card decks are shuffled together
  * @param cardsPerPlayer    how many cards each player is dealt from the shuffled pile
  * @param jokers            whether each deck contributes two wild jokers
- * @param rankMode          whether the rank is fixed per round or declared per play
  * @param callWindowSeconds minimum time after a play during which the next player must wait,
  *                          so everyone gets a chance to call a bluff (0 disables the wait)
  */
-public record GameSettings(int decks, int cardsPerPlayer, boolean jokers, RankMode rankMode, int callWindowSeconds) {
+public record GameSettings(int decks, int cardsPerPlayer, boolean jokers, int callWindowSeconds) {
 
     public static final int MAX_DECKS = 8;
     public static final int MAX_CALL_WINDOW_SECONDS = 30;
@@ -26,16 +25,13 @@ public record GameSettings(int decks, int cardsPerPlayer, boolean jokers, RankMo
             throw new IllegalArgumentException("Cards per player cannot exceed the "
                     + DeckFactory.size(decks, jokers) + " cards in " + decks + " deck(s)");
         }
-        if (rankMode == null) {
-            throw new IllegalArgumentException("Rank mode is required");
-        }
         if (callWindowSeconds < 0 || callWindowSeconds > MAX_CALL_WINDOW_SECONDS) {
             throw new IllegalArgumentException("Call window must be between 0 and " + MAX_CALL_WINDOW_SECONDS + " seconds");
         }
     }
 
     public static GameSettings defaults() {
-        return new GameSettings(1, 8, true, RankMode.ROUND, 5);
+        return new GameSettings(1, 8, true, 5);
     }
 
     /** Cards available in the shuffled pile. */

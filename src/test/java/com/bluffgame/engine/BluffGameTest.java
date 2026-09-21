@@ -6,7 +6,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.bluffgame.model.Card;
 import com.bluffgame.model.GameSettings;
 import com.bluffgame.model.Rank;
-import com.bluffgame.model.RankMode;
 import com.bluffgame.model.Suit;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -33,15 +32,15 @@ class BluffGameTest {
 
     @BeforeEach
     void threePlayerGame() {
-        game = threePlayers(RankMode.ROUND, 0);
+        game = threePlayers(0);
     }
 
-    private BluffGame threePlayers(RankMode mode, int callWindowSeconds) {
+    private BluffGame threePlayers(int callWindowSeconds) {
         Map<String, List<Card>> hands = new LinkedHashMap<>();
         hands.put("A", List.of(K_SPADES, K_HEARTS, Q_CLUBS));
         hands.put("B", List.of(A_SPADES, FIVE_DIAMONDS, JOKER));
         hands.put("C", List.of(NINE_CLUBS, K_DIAMONDS));
-        return BluffGame.startWithHands(new GameSettings(1, 3, true, mode, callWindowSeconds), hands, "A", clock::get);
+        return BluffGame.startWithHands(new GameSettings(1, 3, true, callWindowSeconds), hands, "A", clock::get);
     }
 
     private static List<String> kinds(List<GameEvent> events) {
@@ -52,7 +51,7 @@ class BluffGameTest {
 
     @Test
     void startDealsTheConfiguredNumberOfCardsToEveryPlayer() {
-        GameSettings settings = new GameSettings(2, 10, true, RankMode.ROUND, 5);
+        GameSettings settings = new GameSettings(2, 10, true, 5);
         BluffGame dealt = BluffGame.start(settings, List.of("p1", "p2", "p3", "p4"), new Random(42), clock::get);
 
         assertThat(dealt.seats()).hasSize(4);
@@ -67,7 +66,7 @@ class BluffGameTest {
 
     @Test
     void startRejectsTooFewPlayersOrTooManyCards() {
-        GameSettings settings = new GameSettings(1, 20, false, RankMode.ROUND, 5);
+        GameSettings settings = new GameSettings(1, 20, false, 5);
 
         assertThatThrownBy(() -> BluffGame.start(settings, List.of("solo"), new Random(), clock::get))
                 .isInstanceOf(GameException.class)
@@ -108,16 +107,14 @@ class BluffGameTest {
     }
 
     @Test
-    void roundModeLocksTheRankButFreeModeDoesNot() {
+    void whoeverOpensTheRoundFixesTheRankForEveryoneElse() {
+        assertThat(game.currentRank()).isNull();
         game.play("A", List.of(1), Rank.KING);
+        assertThat(game.currentRank()).isEqualTo(Rank.KING);
         assertThatThrownBy(() -> game.play("B", List.of(4), Rank.ACE)).hasMessageContaining("played as Ks");
         game.play("B", List.of(4), Rank.KING);
         assertThat(game.potCardCount()).isEqualTo(2);
-
-        BluffGame free = threePlayers(RankMode.FREE, 0);
-        free.play("A", List.of(1), Rank.KING);
-        free.play("B", List.of(4), Rank.ACE);
-        assertThat(free.currentRank()).isEqualTo(Rank.ACE);
+        assertThat(game.currentRank()).isEqualTo(Rank.KING);
     }
 
     // ------------------------------------------------------------ passing
@@ -212,7 +209,7 @@ class BluffGameTest {
 
     @Test
     void theNextPlayerHasToWaitForTheCallWindow() {
-        BluffGame timed = threePlayers(RankMode.ROUND, 5);
+        BluffGame timed = threePlayers(5);
         timed.play("A", List.of(1), Rank.KING);
 
         assertThat(timed.callWindowEndsAt()).isEqualTo(1_000_000L + 5_000L);
@@ -233,7 +230,7 @@ class BluffGameTest {
         Map<String, List<Card>> hands = new LinkedHashMap<>();
         hands.put("A", List.of(K_SPADES, K_HEARTS));
         hands.put("B", List.of(A_SPADES, FIVE_DIAMONDS));
-        BluffGame duel = BluffGame.startWithHands(new GameSettings(1, 2, false, RankMode.ROUND, 10), hands, "A", clock::get);
+        BluffGame duel = BluffGame.startWithHands(new GameSettings(1, 2, false, 10), hands, "A", clock::get);
 
         duel.play("A", List.of(1), Rank.KING);
 
@@ -301,7 +298,7 @@ class BluffGameTest {
         Map<String, List<Card>> hands = new LinkedHashMap<>();
         hands.put("A", List.of(K_SPADES));
         hands.put("B", List.of(A_SPADES, FIVE_DIAMONDS));
-        BluffGame duel = BluffGame.startWithHands(new GameSettings(1, 2, false, RankMode.ROUND, 0), hands, "A", clock::get);
+        BluffGame duel = BluffGame.startWithHands(new GameSettings(1, 2, false, 0), hands, "A", clock::get);
         duel.drainEvents();
 
         duel.play("A", List.of(1), Rank.KING);
