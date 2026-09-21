@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bluff · multiplayer card game</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ============================== HOME ============================== -->
+  <section id="screen-home" class="screen">
+    <div class="home-card">
+      <h1 class="logo"><span class="suit">&#9824;</span> BLUFF <span class="suit red">&#9829;</span></h1>
+      <p class="tagline">Lie about your cards. Call out your friends. Empty your hand first.</p>
+      <label>Nickname
+        <input id="nickname" maxlength="16" placeholder="e.g. CardShark" autocomplete="off">
+      </label>
+      <div class="home-actions">
+        <button id="btn-create" class="primary big">Create a room</button>
+        <div class="or">or join one</div>
+        <div class="join-row">
+          <input id="join-code" maxlength="6" placeholder="ROOM CODE" autocomplete="off" spellcheck="false">
+          <button id="btn-join" class="big">Join</button>
+        </div>
+      </div>
+      <p id="home-error" class="error"></p>
+      <details class="rules">
+        <summary>How to play</summary>
+        <ul>
+          <li>On your turn, put any number of cards face down in the pot and announce a rank, whether or not you really hold it.</li>
+          <li>Until the next player acts, anyone still holding cards can <b>call bluff</b>. The play is revealed: if it was honest the caller takes the whole pot, otherwise the liar does.</li>
+          <li>You may <b>pass</b> instead of playing. When everyone else has passed, the pot is set aside and the last player to play opens a new round.</li>
+          <li>The first player to get rid of all their cards wins. Keep going until one loser is left, or vote to restart.</li>
+        </ul>
+      </details>
+    </div>
+  </section>
+
+  <!-- ============================== LOBBY ============================== -->
+  <section id="screen-lobby" class="screen hidden">
+    <div class="lobby">
+      <header class="lobby-head">
+        <div class="room-id">
+          <span class="label">Room</span>
+          <span id="lobby-code" class="code"></span>
+          <button id="btn-copy" class="ghost">Copy invite link</button>
+        </div>
+        <div>
+          <button id="btn-toggle-chat-lobby" class="ghost">Chat</button>
+          <button id="btn-leave-lobby" class="ghost">Leave</button>
+        </div>
+      </header>
+      <div class="lobby-body">
+        <div class="panel">
+          <h2>Players <span id="lobby-count" class="muted"></span></h2>
+          <ul id="lobby-players"></ul>
+          <p class="hint">Share the code or the invite link. Everyone connected when the host presses start gets a seat.</p>
+        </div>
+        <div class="panel">
+          <h2>Game settings</h2>
+          <form id="settings-form" autocomplete="off">
+            <label>Decks to shuffle together
+              <input type="number" name="decks" min="1" max="8">
+            </label>
+            <label>Cards dealt to each player
+              <input type="number" name="cardsPerPlayer" min="1">
+            </label>
+            <label class="check">
+              <input type="checkbox" name="jokers">
+              Include jokers (two per deck, they count as any rank)
+            </label>
+            <label class="wide">Rank rule
+              <select name="rankMode">
+                <option value="ROUND">Round rank: whoever opens a round picks the rank, everyone else claims the same</option>
+                <option value="FREE">Free: every play announces its own rank</option>
+              </select>
+            </label>
+            <label>Call window (seconds)
+              <input type="number" name="callWindowSeconds" min="0" max="30">
+            </label>
+            <p class="hint wide" id="settings-hint"></p>
+          </form>
+          <div class="start-row">
+            <button id="btn-start" class="primary big">Start game</button>
+            <p id="start-hint" class="hint"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== GAME ============================== -->
+  <section id="screen-game" class="screen hidden">
+    <header class="game-head">
+      <div class="head-left">
+        <span id="game-code" class="code"></span>
+        <span id="game-round" class="muted"></span>
+      </div>
+      <div id="game-status" class="head-center"></div>
+      <div class="head-right">
+        <button id="btn-toggle-chat" class="ghost">Chat <span id="chat-unread" class="unread hidden"></span></button>
+        <button id="btn-end-game" class="ghost hidden">End game</button>
+        <button id="btn-leave-game" class="ghost">Leave</button>
+      </div>
+    </header>
+
+    <div id="table">
+      <div id="seats"></div>
+      <div id="discard-pile" class="hidden">
+        <div class="discard-cards"></div>
+        <span id="discard-count"></span>
+      </div>
+      <div id="deck-pile" class="hidden"></div>
+      <div id="center">
+        <div id="pot">
+          <div id="pot-cards"></div>
+          <div id="pot-empty">pot</div>
+        </div>
+        <div id="pot-count"></div>
+        <div id="pot-label"></div>
+        <div id="call-area">
+          <button id="btn-call" class="danger big hidden">Call bluff!</button>
+          <div id="call-window" class="hidden"><div class="bar"></div></div>
+        </div>
+      </div>
+      <div id="reveal-row"></div>
+      <div id="spectators" class="hidden"></div>
+
+      <div id="vote-panel" class="overlay-panel hidden">
+        <h3 id="vote-title"></h3>
+        <p>Start a fresh game right now? It only happens when <b>everyone</b> says yes. Otherwise play on until one loser is left.</p>
+        <div class="vote-buttons">
+          <button id="btn-vote-yes" class="primary">Yes, restart</button>
+          <button id="btn-vote-no">Keep playing</button>
+        </div>
+        <p id="vote-tally" class="hint"></p>
+      </div>
+    </div>
+
+    <footer id="my-area">
+      <div id="my-info">
+        <span id="my-name"></span>
+        <span id="my-count" class="muted"></span>
+        <span id="turn-hint"></span>
+      </div>
+      <div id="hand"></div>
+      <div id="controls">
+        <div id="rank-block">
+          <span id="rank-label" class="muted"></span>
+          <div id="rank-picker"></div>
+        </div>
+        <div class="control-buttons">
+          <button id="btn-play" class="primary big" disabled>Play</button>
+          <button id="btn-pass" class="big" disabled>Pass</button>
+        </div>
+      </div>
+      <div id="spectating" class="hidden">You are watching this game. You will be dealt in when the next one starts.</div>
+    </footer>
+
+    <div id="gameover-panel" class="overlay-panel hidden">
+      <h2 id="gameover-title"></h2>
+      <ol id="standings"></ol>
+      <div class="vote-buttons">
+        <button id="btn-again-yes" class="primary">Play again</button>
+        <button id="btn-again-no">Not yet</button>
+      </div>
+      <p id="gameover-tally" class="hint"></p>
+      <button id="btn-back-lobby" class="ghost hidden">Back to lobby</button>
+    </div>
+  </section>
+
+  <!-- ============================== CHAT ============================== -->
+  <aside id="chat" class="hidden">
+    <div class="chat-head"><span>Chat &amp; game log</span><button id="btn-close-chat" class="ghost">×</button></div>
+    <div id="chat-log"></div>
+    <form id="chat-form" autocomplete="off">
+      <input id="chat-input" maxlength="300" placeholder="Say something...">
+      <button class="primary">Send</button>
+    </form>
+  </aside>
+</div>
+
+<div id="fx-layer"></div>
+<div id="banner-layer"></div>
+<div id="toasts"></div>
+<div id="reconnecting" class="hidden">Reconnecting...</div>
+
+<script src="js/cards.js"></script>
+<script src="js/animations.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
