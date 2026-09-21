@@ -150,6 +150,7 @@ window.FX = (() => {
         }).then(() => {
           counts[pid] = (counts[pid] || 0) + 1;
           ctx.setSeatCount(pid, counts[pid]);
+          if (window.Sounds) Sounds.deal();
           if (!isMe) card.remove();
         }));
       });
@@ -238,6 +239,7 @@ window.FX = (() => {
     }
     await sleep(600);
 
+    if (window.Sounds) Sounds.verdict(ev.honest);
     await banner(ev.honest ? 'HONEST!' : 'BLUFF!', ev.honest ? 'honest' : 'bluff', 1900,
       ctx.nameOf(ev.receiverId) + (ev.receiverId === ctx.me.id ? ' take ' : ' takes ') + plural(ev.potCount, 'card'), 1100);
 

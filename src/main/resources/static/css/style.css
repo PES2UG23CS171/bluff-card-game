@@ -189,9 +189,10 @@ input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
 #my-info { display: flex; gap: 12px; align-items: baseline; }
 #my-name { font-weight: 800; }
 #turn-hint { color: var(--accent-2); font-weight: 700; }
-#hand { position: relative; height: 132px; }
+#hand { position: relative; height: 150px; }
+#hand.compact .card.lg { --card-w: 58px; --card-h: 82px; }
 #hand .card {
-  position: absolute; bottom: 4px; transform-origin: bottom center;
+  position: absolute; bottom: 22px; transform-origin: bottom center;
   transform: translateY(var(--lift, 0px)) rotate(var(--rot, 0deg));
   transition: transform .18s, left .3s, opacity .3s; cursor: pointer;
 }
@@ -205,7 +206,7 @@ input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
 #hand .card.deal-in { animation: dealIn .35s both; }
 @keyframes dealIn { from { opacity: 0; transform: translateY(60px) rotate(var(--rot, 0deg)) } to { opacity: 1; transform: translateY(var(--lift, 0px)) rotate(var(--rot, 0deg)) } }
 #hand.locked .card { cursor: default; }
-#controls { display: flex; align-items: center; justify-content: center; gap: 24px; flex-wrap: wrap; }
+#controls { display: flex; align-items: center; justify-content: center; gap: 24px; flex-wrap: wrap; position: relative; z-index: 5; }
 #rank-block { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; }
 #rank-picker { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
 #rank-picker button { width: 40px; padding: 7px 0; font-weight: 800; }
@@ -295,6 +296,7 @@ input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
 .bubble::after { content: ''; position: absolute; left: 50%; bottom: -6px; border: 6px solid transparent; border-top-color: #fff; border-bottom: 0; transform: translateX(-50%); }
 @keyframes bubbleIn { 0% { opacity: 0; transform: translate(-50%, -80%) } 15% { opacity: 1; transform: translate(-50%, -100%) } 80% { opacity: 1 } 100% { opacity: 0 } }
 
+.btn-sound { min-width: 42px; }
 #toasts { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; z-index: 70; pointer-events: none; align-items: center; }
 .toast { background: rgba(0,0,0,.85); padding: 8px 14px; border-radius: 10px; animation: toastIn 3.2s forwards; font-size: .92rem; box-shadow: 0 6px 20px rgba(0,0,0,.5); }
 .toast.error { background: #7a1f24; }
@@ -309,6 +311,7 @@ input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
   #game-round { display: none; }
   .seat { width: 104px; }
   #rank-picker button { width: 34px; }
-  #hand { height: 118px; }
+  #hand { height: 136px; }
   .card.lg { --card-w: 64px; --card-h: 90px; }
+  #hand.compact .card.lg { --card-w: 50px; --card-h: 70px; }
 }

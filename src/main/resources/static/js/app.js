@@ -270,11 +270,38 @@
     }
     for (const ev of events) {
       logEvent(ev, state);
+      soundFor(ev, state, !fast);
       if (!fast) {
         await FX.animate(ev, state, previous, ctx());
       }
     }
     renderTable(state, { dealIn: dealing });
+  }
+
+  /** Plays the sound for an event. The animation module adds the ones that must line up with a picture. */
+  function soundFor(ev, state, animated) {
+    switch (ev.kind) {
+      case 'play': Sounds.play(ev.count); break;
+      case 'pass': Sounds.pass(); break;
+      case 'bluffCalled':
+        Sounds.bluffCalled();
+        if (!animated) Sounds.verdict(ev.honest);
+        break;
+      case 'potSetAside': Sounds.setAside(); break;
+      case 'playerFinished': Sounds.finished(); break;
+      case 'gameOver': if (ev.reason !== 'abandoned') Sounds.gameOver(); break;
+      case 'deal': if (!animated) Sounds.shuffle(); break;
+      case 'turn': if (ev.playerId === App.me.id && state.room.phase === 'PLAYING') Sounds.yourTurn(); break;
+      default: break;
+    }
+  }
+
+  function updateSoundButtons() {
+    const muted = Sounds.isMuted();
+    $$('.btn-sound').forEach(b => {
+      b.textContent = muted ? '\uD83D\uDD07' : '\uD83D\uDD0A';
+      b.title = muted ? 'Sound is off' : 'Sound is on';
+    });
   }
 
   /** What the animation module needs from the app. */
@@ -685,22 +712,26 @@
 
   // ------------------------------------------------------------ hand
 
-  const HAND_CARD_W = 74;
-  const HAND_CARD_H = 104;
+  const COMPACT_HAND = 15; // from this many cards on, the hand uses smaller cards
 
-  /** Horizontal layout of an n-card fan inside the hand strip. */
+  /** Layout of an n-card fan inside the hand strip: card size, spacing and where it starts. */
   function handLayout(n) {
-    const width = $('#hand').clientWidth || 600;
-    const spacing = n > 1 ? Math.min(HAND_CARD_W * 0.62, (width - HAND_CARD_W - 8) / (n - 1)) : 0;
-    const startX = (width - ((n - 1) * spacing + HAND_CARD_W)) / 2;
-    return { spacing, startX };
+    const hand = $('#hand');
+    const compact = n >= COMPACT_HAND;
+    const probe = hand.querySelector('.card');
+    const cardW = probe && probe.offsetWidth ? probe.offsetWidth : (compact ? 58 : 74);
+    const cardH = probe && probe.offsetHeight ? probe.offsetHeight : (compact ? 82 : 104);
+    const width = hand.clientWidth || 600;
+    const spacing = n > 1 ? Math.min(cardW * 0.62, (width - cardW - 8) / (n - 1)) : 0;
+    const startX = (width - ((n - 1) * spacing + cardW)) / 2;
+    return { compact, cardW, cardH, spacing, startX };
   }
 
   /** Viewport centre of the i-th card of an n-card hand, used to aim dealt cards. */
   function handSlot(i, n) {
     const r = $('#hand').getBoundingClientRect();
-    const { spacing, startX } = handLayout(n);
-    return { x: r.left + startX + i * spacing + HAND_CARD_W / 2, y: r.bottom - 4 - HAND_CARD_H / 2 };
+    const { cardW, cardH, spacing, startX } = handLayout(n);
+    return { x: r.left + startX + i * spacing + cardW / 2, y: r.bottom - 22 - cardH / 2 };
   }
 
   function renderHand(hand, options) {
@@ -708,6 +739,7 @@
     const el = $('#hand');
     const existing = new Map($$('.card', el).map(c => [Number(c.dataset.id), c]));
     const n = hand.length;
+    el.classList.toggle('compact', n >= COMPACT_HAND);
     const { spacing, startX } = handLayout(n);
     const keep = new Set();
     hand.forEach((card, i) => {
@@ -724,8 +756,9 @@
       }
       keep.add(card.id);
       const mid = (n - 1) / 2;
-      const rot = n > 1 ? (i - mid) * Math.min(2.6, 34 / n) : 0;
-      const lift = Math.pow(Math.abs(i - mid), 2) * Math.min(0.9, 12 / n);
+      // A gentle arc: the outer cards tilt and sit a little lower, but never far enough to reach the buttons.
+      const rot = n > 1 ? (i - mid) * Math.min(2.6, 26 / n) : 0;
+      const lift = Math.min(14, Math.pow(Math.abs(i - mid), 2) * Math.min(0.9, 12 / n));
       c.style.left = (startX + i * spacing) + 'px';
       c.style.zIndex = i;
       c.style.setProperty('--rot', rot + 'deg');
@@ -979,6 +1012,12 @@
     $('#btn-again-yes').addEventListener('click', () => send({ type: 'vote', yes: true }));
     $('#btn-again-no').addEventListener('click', () => send({ type: 'vote', yes: false }));
 
+    $$('.btn-sound').forEach(b => b.addEventListener('click', () => {
+      Sounds.toggle();
+      updateSoundButtons();
+      if (!Sounds.isMuted()) Sounds.pass();
+    }));
+    updateSoundButtons();
     $('#btn-toggle-chat').addEventListener('click', () => toggleChat());
     $('#btn-toggle-chat-lobby').addEventListener('click', () => toggleChat());
     $('#btn-close-chat').addEventListener('click', () => toggleChat(false));
