@@ -1,4 +1,6 @@
-# Bluff Card Game
+# Bluff
+
+By Dhrushaj Achar
 
 Real-time multiplayer **Bluff** (also known as *Cheat* / *I Doubt It*) for the browser,
 built with Java 21, Spring Boot 3.5 and plain WebSockets. No accounts, no database:

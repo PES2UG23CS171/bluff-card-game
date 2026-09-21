@@ -85,6 +85,7 @@ input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
 .logo { margin: 0; font-size: 3rem; text-align: center; letter-spacing: .22em; }
 .logo .suit { font-size: 2.2rem; vertical-align: middle; }
 .red { color: #ff5a5f; }
+.byline { margin: -6px 0 0; text-align: center; color: var(--accent-2); font-weight: 600; letter-spacing: .06em; }
 .tagline { margin: 0; text-align: center; color: var(--muted); }
 .home-card > label { display: flex; flex-direction: column; gap: 6px; font-weight: 600; }
 .home-actions { display: flex; flex-direction: column; gap: 10px; }
