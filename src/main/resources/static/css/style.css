@@ -138,6 +138,28 @@ input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
 .head-right { display: flex; gap: 6px; }
 .unread { background: var(--danger); color: #fff; border-radius: 10px; padding: 0 6px; font-size: .75rem; margin-left: 4px; }
 
+#game-body { flex: 1; display: flex; min-height: 0; }
+#order-panel {
+  width: 210px; flex-shrink: 0; margin: 14px 0 0 14px; background: var(--panel); border-radius: 14px;
+  padding: 10px; overflow-y: auto; display: flex; flex-direction: column;
+}
+#order-panel h3 { margin: 0 0 8px; font-size: .78rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+#order-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+#order-list li {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 10px;
+  background: var(--panel-2); border: 2px solid transparent; transition: border-color .2s, box-shadow .2s, opacity .2s;
+}
+#order-list li.turn { border-color: var(--accent); background: #3a2f12; box-shadow: 0 0 14px rgba(245,185,66,.35); }
+#order-list li.passed { opacity: .55; }
+#order-list li.done { opacity: .7; }
+#order-list li.offline { opacity: .5; }
+.ord-idx { width: 14px; color: var(--muted); font-size: .78rem; text-align: right; }
+.ord-avatar { width: 26px; height: 26px; font-size: .8rem; }
+.ord-name { flex: 1; font-weight: 700; font-size: .88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ord-cards { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ord-cards small { color: var(--muted); font-weight: 600; font-size: .72rem; }
+.ord-tag { font-size: .62rem; padding: 1px 5px; }
+#order-watching { margin-top: 10px; font-size: .8rem; color: var(--muted); line-height: 1.3; }
 #table {
   flex: 1; position: relative; margin: 14px 18px 0; min-height: 240px;
   border-radius: 45% / 40%;
@@ -154,9 +176,13 @@ input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
 .seat.turn { box-shadow: 0 0 0 3px var(--accent), 0 0 28px var(--accent); background: rgba(0,0,0,.5); }
 .seat.offline { opacity: .5; }
 .seat.done { background: rgba(20,60,30,.6); }
-.seat-name { font-weight: 700; font-size: .92rem; max-width: 118px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seat-name {
+  font-weight: 700; font-size: .9rem; max-width: 120px; text-align: center; line-height: 1.15;
+  max-height: 2.3em; overflow: hidden; overflow-wrap: anywhere;
+}
 .seat-cards { font-size: .8rem; color: #dfe6f0; }
-.seat-pile { height: 38px; position: relative; width: 84px; }
+.seat.passed { opacity: .6; }
+.seat-pile { height: 50px; position: relative; width: 84px; }
 .seat-pile .card { position: absolute; top: 0; transform-origin: bottom center; }
 .seat-badges { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; min-height: 18px; }
 
@@ -198,7 +224,7 @@ input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
 #spectators { position: absolute; right: 16px; bottom: 12px; font-size: .8rem; color: #dfe6f0; background: rgba(0,0,0,.35); padding: 4px 10px; border-radius: 8px; }
 
 #my-area { padding: 6px 16px 10px; display: flex; flex-direction: column; gap: 4px; }
-#my-info { display: flex; gap: 12px; align-items: baseline; }
+#my-info { display: flex; gap: 12px; align-items: baseline; position: relative; }
 #my-name { font-weight: 800; }
 #turn-hint { color: var(--accent-2); font-weight: 700; }
 #hand { position: relative; height: 150px; }
@@ -277,6 +303,14 @@ input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
 #chat-form { display: flex; gap: 6px; padding: 10px; border-top: 1px solid var(--line); }
 #chat-form input { flex: 1; }
 @media (max-width: 900px) {
+  #game-body { flex-direction: column; }
+  #order-panel { width: auto; margin: 10px 12px 0; padding: 6px 8px; flex-direction: row; overflow-x: auto; overflow-y: hidden; }
+  #order-panel h3, #order-watching, .ord-idx { display: none; }
+  #order-list { flex-direction: row; gap: 6px; }
+  #order-list li { flex-direction: column; gap: 2px; min-width: 66px; padding: 4px 6px; text-align: center; }
+  .ord-name { max-width: 66px; font-size: .72rem; }
+  .ord-cards small { display: none; }
+  .row-timer { font-size: .7rem; padding: 1px 6px; }
   #chat { position: fixed; right: 0; top: 0; bottom: 0; z-index: 40; box-shadow: -10px 0 30px rgba(0,0,0,.5); width: min(320px, 90vw); }
 }
 

@@ -5,13 +5,17 @@ package com.bluffgame.model;
  *
  * @param decks             how many 52-card decks are shuffled together
  * @param cardsPerPlayer    how many cards each player is dealt from the shuffled pile
+ *                          (ignored when {@code splitEqually} is on)
  * @param jokers            whether each deck contributes two wild jokers
  * @param callWindowSeconds minimum time after a play during which the next player must wait,
  *                          so everyone gets a chance to call a bluff (0 disables the wait)
  * @param turnSeconds       how long a player has to act on their turn before they are passed
  *                          automatically (0 disables the timer)
+ * @param splitEqually      deal the whole pile out in equal shares to whoever is present when
+ *                          the game starts; any remainder stays out of the game
  */
-public record GameSettings(int decks, int cardsPerPlayer, boolean jokers, int callWindowSeconds, int turnSeconds) {
+public record GameSettings(int decks, int cardsPerPlayer, boolean jokers, int callWindowSeconds, int turnSeconds,
+                           boolean splitEqually) {
 
     public static final int MAX_DECKS = 8;
     public static final int MAX_CALL_WINDOW_SECONDS = 30;
@@ -44,7 +48,7 @@ public record GameSettings(int decks, int cardsPerPlayer, boolean jokers, int ca
     }
 
     public static GameSettings defaults() {
-        return new GameSettings(1, 8, true, 5, 30);
+        return new GameSettings(1, 8, true, 5, 30, false);
     }
 
     /** Cards available in the shuffled pile. */
@@ -57,8 +61,20 @@ public record GameSettings(int decks, int cardsPerPlayer, boolean jokers, int ca
         return players < 1 ? totalCards() : totalCards() / players;
     }
 
+    public GameSettings withCardsPerPlayer(int perPlayer) {
+        return new GameSettings(decks, perPlayer, jokers, callWindowSeconds, turnSeconds, splitEqually);
+    }
+
+    /** The rules actually used to deal to {@code players} players: an equal share of the pile when splitting. */
+    public GameSettings effective(int players) {
+        if (!splitEqually || players < 1) {
+            return this;
+        }
+        return withCardsPerPlayer(Math.max(1, maxCardsPerPlayer(players)));
+    }
+
     /** Whether the pile holds enough cards for {@code players} players. */
     public boolean canDeal(int players) {
-        return players >= 1 && cardsPerPlayer * players <= totalCards();
+        return players >= 1 && effective(players).cardsPerPlayer() * players <= totalCards();
     }
 }

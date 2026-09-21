@@ -296,7 +296,7 @@ public final class BluffGame {
     /**
      * Records a restart vote. Voting opens once the first player has finished (or the game is over).
      *
-     * @return true when every connected player at the table has voted yes
+     * @return true when a majority of the connected players at the table has voted yes
      */
     public boolean vote(String playerId, boolean yes) {
         if (!voteOpen()) {
@@ -309,12 +309,14 @@ public final class BluffGame {
                 .map(Seat::playerId)
                 .toList();
         long yesVotes = eligible.stream().filter(id -> Boolean.TRUE.equals(restartVotes.get(id))).count();
+        int needed = eligible.size() / 2 + 1;
         events.add(new GameEvent("vote")
                 .with("playerId", playerId)
                 .with("yes", yes)
                 .with("yesVotes", yesVotes)
-                .with("needed", eligible.size()));
-        return !eligible.isEmpty() && yesVotes == eligible.size();
+                .with("needed", needed)
+                .with("voters", eligible.size()));
+        return !eligible.isEmpty() && yesVotes >= needed;
     }
 
     /** Marks a player online or offline. Offline players are skipped in the turn order. */
@@ -686,7 +688,7 @@ public final class BluffGame {
         return Collections.unmodifiableMap(restartVotes);
     }
 
-    /** Players who still count for a unanimous restart vote. */
+    /** Players whose votes count towards a restart. */
     public List<String> voters() {
         return seats.stream().filter(seat -> !seat.left && seat.connected).map(Seat::playerId).toList();
     }

@@ -320,14 +320,16 @@ public class RoomService {
         if (seated.size() < 2) {
             throw new GameException("At least two connected players are needed");
         }
-        BluffGame game = BluffGame.start(room.settings(), seated, random, clock::millis);
+        GameSettings rules = room.settings().effective(seated.size());
+        BluffGame game = BluffGame.start(rules, seated, random, clock::millis);
         room.setGame(game);
         room.touch(clock.instant());
         List<GameEvent> events = new ArrayList<>(leadingEvents);
         events.addAll(game.drainEvents());
         system(room, "Game started with " + seated.size() + " players: "
-                + room.settings().decks() + " deck(s), " + room.settings().cardsPerPlayer() + " cards each"
-                + (room.settings().jokers() ? ", jokers in" : ", no jokers"));
+                + rules.decks() + " deck(s), " + rules.cardsPerPlayer() + " cards each"
+                + (rules.splitEqually() ? " (pile split equally)" : "")
+                + (rules.jokers() ? ", jokers in" : ", no jokers"));
         broadcast(room, events);
     }
 

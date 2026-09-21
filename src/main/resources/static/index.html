@@ -70,6 +70,10 @@
               <input type="number" name="cardsPerPlayer" min="1">
             </label>
             <label class="check">
+              <input type="checkbox" name="splitEqually">
+              Split the whole pile equally among the players present (leftovers stay out)
+            </label>
+            <label class="check">
               <input type="checkbox" name="jokers">
               Include jokers (two per deck, they count as any rank)
             </label>
@@ -106,6 +110,12 @@
       </div>
     </header>
 
+    <div id="game-body">
+    <aside id="order-panel">
+      <h3>Play order</h3>
+      <ol id="order-list"></ol>
+      <div id="order-watching" class="hidden"></div>
+    </aside>
     <div id="table">
       <div id="seats"></div>
       <div id="banner-layer"></div>
@@ -136,13 +146,15 @@
 
       <div id="vote-panel" class="overlay-panel hidden">
         <h3 id="vote-title"></h3>
-        <p>Start a fresh game right now? It only happens when <b>everyone</b> says yes. Otherwise play on until one loser is left.</p>
+        <p>Start a fresh game right now? It happens as soon as <b>most</b> players say yes. Otherwise play on until one loser is left.</p>
         <div class="vote-buttons">
           <button id="btn-vote-yes" class="primary">Yes, restart</button>
           <button id="btn-vote-no">Keep playing</button>
         </div>
         <p id="vote-tally" class="hint"></p>
       </div>
+    </div>
+
     </div>
 
     <footer id="my-area">

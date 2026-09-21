@@ -108,7 +108,8 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 s.path("cardsPerPlayer").asInt(1),
                 s.path("jokers").asBoolean(true),
                 s.path("callWindowSeconds").asInt(5),
-                s.path("turnSeconds").asInt(30));
+                s.path("turnSeconds").asInt(30),
+                s.path("splitEqually").asBoolean(false));
     }
 
     private static List<Integer> parseCardIds(JsonNode node) {

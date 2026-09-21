@@ -40,7 +40,7 @@ class BluffGameTest {
         hands.put("A", List.of(K_SPADES, K_HEARTS, Q_CLUBS));
         hands.put("B", List.of(A_SPADES, FIVE_DIAMONDS, JOKER));
         hands.put("C", List.of(NINE_CLUBS, K_DIAMONDS));
-        return BluffGame.startWithHands(new GameSettings(1, 3, true, callWindowSeconds, 0), hands, "A", clock::get);
+        return BluffGame.startWithHands(new GameSettings(1, 3, true, callWindowSeconds, 0, false), hands, "A", clock::get);
     }
 
     private static List<String> kinds(List<GameEvent> events) {
@@ -51,7 +51,7 @@ class BluffGameTest {
 
     @Test
     void startDealsTheConfiguredNumberOfCardsToEveryPlayer() {
-        GameSettings settings = new GameSettings(2, 10, true, 5, 0);
+        GameSettings settings = new GameSettings(2, 10, true, 5, 0, false);
         BluffGame dealt = BluffGame.start(settings, List.of("p1", "p2", "p3", "p4"), new Random(42), clock::get);
 
         assertThat(dealt.seats()).hasSize(4);
@@ -66,7 +66,7 @@ class BluffGameTest {
 
     @Test
     void startRejectsTooFewPlayersOrTooManyCards() {
-        GameSettings settings = new GameSettings(1, 20, false, 5, 0);
+        GameSettings settings = new GameSettings(1, 20, false, 5, 0, false);
 
         assertThatThrownBy(() -> BluffGame.start(settings, List.of("solo"), new Random(), clock::get))
                 .isInstanceOf(GameException.class)
@@ -249,7 +249,7 @@ class BluffGameTest {
         Map<String, List<Card>> hands = new LinkedHashMap<>();
         hands.put("A", List.of(K_SPADES, K_HEARTS));
         hands.put("B", List.of(A_SPADES, FIVE_DIAMONDS));
-        BluffGame duel = BluffGame.startWithHands(new GameSettings(1, 2, false, 10, 0), hands, "A", clock::get);
+        BluffGame duel = BluffGame.startWithHands(new GameSettings(1, 2, false, 10, 0, false), hands, "A", clock::get);
 
         duel.play("A", List.of(1), Rank.KING);
 
@@ -317,7 +317,7 @@ class BluffGameTest {
         Map<String, List<Card>> hands = new LinkedHashMap<>();
         hands.put("A", List.of(K_SPADES));
         hands.put("B", List.of(A_SPADES, FIVE_DIAMONDS));
-        BluffGame duel = BluffGame.startWithHands(new GameSettings(1, 2, false, 0, 0), hands, "A", clock::get);
+        BluffGame duel = BluffGame.startWithHands(new GameSettings(1, 2, false, 0, 0, false), hands, "A", clock::get);
         duel.drainEvents();
 
         duel.play("A", List.of(1), Rank.KING);
@@ -334,20 +334,22 @@ class BluffGameTest {
     }
 
     @Test
-    void restartNeedsEveryConnectedPlayerToVoteYes() {
+    void restartNeedsAMajorityOfConnectedPlayers() {
         assertThatThrownBy(() -> game.vote("A", true)).hasMessageContaining("nothing to vote on");
         game.play("A", List.of(1, 2, 3), Rank.KING);
         game.pass("B"); // A is finished, voting opens
 
-        assertThat(game.vote("A", true)).isFalse();
+        assertThat(game.vote("A", true)).isFalse();  // one of three
         assertThat(game.vote("B", false)).isFalse();
-        assertThat(game.vote("C", true)).isFalse();
-        assertThat(game.vote("B", true)).isTrue();
-        assertThat(game.restartVotes()).containsEntry("B", true);
+        assertThat(game.vote("C", true)).isTrue();   // two of three is a majority
+        List<GameEvent> events = game.drainEvents();
+        GameEvent last = events.get(events.size() - 1);
+        assertThat(last.get("needed")).isEqualTo(2);
+        assertThat(last.get("voters")).isEqualTo(3);
 
-        game.setConnected("C", false);
-        game.vote("C", false);
-        assertThat(game.vote("A", true)).isTrue(); // offline players do not block a restart
+        game.setConnected("C", false);               // offline players neither count nor block
+        assertThat(game.vote("B", false)).isFalse();  // A yes, B no: one of two
+        assertThat(game.vote("B", true)).isTrue();    // two of two
     }
 
     // ------------------------------------------------------------ turn timer
@@ -358,7 +360,7 @@ class BluffGameTest {
         hands.put("A", List.of(K_SPADES, K_HEARTS, Q_CLUBS));
         hands.put("B", List.of(A_SPADES, FIVE_DIAMONDS, JOKER));
         hands.put("C", List.of(NINE_CLUBS, K_DIAMONDS));
-        BluffGame timed = BluffGame.startWithHands(new GameSettings(1, 3, true, 0, 10), hands, "A", clock::get);
+        BluffGame timed = BluffGame.startWithHands(new GameSettings(1, 3, true, 0, 10, false), hands, "A", clock::get);
         timed.drainEvents();
 
         assertThat(timed.turnEndsAt()).isEqualTo(1_000_000L + 10_000L);

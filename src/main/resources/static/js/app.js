@@ -437,10 +437,10 @@
         appendLog(n(ev.playerId) + ' finished ' + ordinal(ev.place) + '!', true);
         break;
       case 'voteOpened':
-        appendLog('Vote opened: restart now (needs everyone) or play on until one loser is left.');
+        appendLog('Vote opened: restart now (a majority decides) or play on until one loser is left.');
         break;
       case 'vote':
-        appendLog(n(ev.playerId) + ' voted ' + (ev.yes ? 'to restart' : 'to keep playing') + ' (' + ev.yesVotes + '/' + ev.needed + ').');
+        appendLog(n(ev.playerId) + ' voted ' + (ev.yes ? 'to restart' : 'to keep playing') + ' (' + ev.yesVotes + ' yes, ' + ev.needed + ' needed).');
         break;
       case 'gameOver':
         appendLog(ev.reason === 'abandoned'
@@ -488,11 +488,13 @@
       if (el.type === 'checkbox') el.checked = !!st[key]; else el.value = st[key];
     });
     Array.from(form.elements).forEach(el => { el.disabled = !me.host; });
+    form.elements.cardsPerPlayer.disabled = !me.host || !!st.splitEqually;
     updateSettingsHint();
 
     const connected = s.players.filter(p => p.connected).length;
     const total = deckSize(st);
-    const need = st.cardsPerPlayer * connected;
+    const each = st.splitEqually ? Math.floor(total / Math.max(1, connected)) : st.cardsPerPlayer;
+    const need = each * connected;
     let reason = '';
     if (connected < 2) reason = 'Waiting for at least one more player to join...';
     else if (need > total) reason = 'Not enough cards: ' + connected + ' players × ' + st.cardsPerPlayer + ' = ' + need + ', but ' + st.decks + ' deck(s) hold ' + total + '.';
@@ -500,7 +502,8 @@
     btn.classList.toggle('hidden', !me.host);
     btn.disabled = !!reason;
     $('#start-hint').textContent = me.host
-      ? (reason || connected + ' players ready. Each gets ' + st.cardsPerPlayer + ' random cards out of ' + total + '.')
+      ? (reason || connected + ' players ready. Each gets ' + each + ' random cards out of ' + total
+        + (st.splitEqually && total - need > 0 ? ' (' + (total - need) + ' left over)' : '') + '.')
       : (reason || 'Waiting for the host to start the game...');
   }
 
@@ -510,6 +513,7 @@
       decks: Math.min(8, Math.max(1, parseInt(f.decks.value, 10) || 1)),
       cardsPerPlayer: Math.max(1, parseInt(f.cardsPerPlayer.value, 10) || 1),
       jokers: f.jokers.checked,
+      splitEqually: f.splitEqually.checked,
       callWindowSeconds: Math.min(30, Math.max(0, parseInt(f.callWindowSeconds.value, 10) || 0)),
       turnSeconds: Math.min(300, Math.max(0, parseInt(f.turnSeconds.value, 10) || 0)),
     };
@@ -520,8 +524,11 @@
     const players = App.state ? App.state.players.filter(p => p.connected).length : 0;
     const total = deckSize(s);
     const max = players ? Math.floor(total / players) : total;
+    $('#settings-form').elements.cardsPerPlayer.disabled = s.splitEqually || !(App.state && App.state.you.host);
     $('#settings-hint').textContent = total + ' cards in the pile'
-      + (players ? '; up to ' + max + ' per player with ' + players + ' connected.' : '.')
+      + (s.splitEqually
+        ? (players ? '; split equally, everyone gets ' + max + ' with ' + players + ' connected.' : '; split equally at the start.')
+        : (players ? '; up to ' + max + ' per player with ' + players + ' connected.' : '.'))
       + (s.callWindowSeconds ? ' After each play the next player waits ' + s.callWindowSeconds + 's so others can call bluff.' : ' No waiting after plays.')
       + (s.turnSeconds ? ' A player who does nothing for ' + s.turnSeconds + 's is passed automatically.' : ' No turn time limit.');
   }
@@ -548,6 +555,7 @@
     $('#btn-end-game').classList.toggle('hidden', !me.host);
 
     renderSeats(state, opts);
+    renderOrder(state, opts);
     renderPot(state, opts);
     renderSpectators(state);
 
@@ -592,7 +600,7 @@
     const g = s && s.game;
     const endsAt = g && g.phase === 'PLAYING' && App.screen === 'game' ? g.turnEndsAt : null;
     const mine = $('#turn-timer');
-    const seatTimers = $$('.seat-timer');
+    const seatTimers = $$('.seat-timer').concat($$('#order-list .row-timer'));
     if (!endsAt) {
       mine.classList.add('hidden');
       seatTimers.forEach(t => t.classList.add('hidden'));
@@ -610,7 +618,7 @@
     mine.textContent = remaining + 's';
     mine.classList.toggle('urgent', urgent);
     seatTimers.forEach(t => {
-      const seat = t.closest('.seat');
+      const seat = t.closest('.seat') || t.closest('li');
       const on = !!seat && seat.dataset.id === g.turnPlayerId;
       t.classList.toggle('hidden', !on);
       if (on) {
@@ -637,7 +645,9 @@
     const positions = [];
     for (let i = 0; i < count; i++) {
       const t = (i + 1) / (count + 1);
-      const angle = Math.PI + 0.32 - t * (Math.PI + 0.64);
+      // Small tables sit along the top; bigger ones spread further down the sides.
+      const spread = Math.min(0.5, 0.32 + Math.max(0, count - 4) * 0.09);
+      const angle = Math.PI + spread - t * (Math.PI + 2 * spread);
       positions.push({ x: 50 + 43 * Math.cos(angle), y: 50 - 38 * Math.sin(angle) });
     }
     return positions;
@@ -687,6 +697,7 @@
     el.classList.toggle('turn', g.turnPlayerId === p.id);
     el.classList.toggle('offline', !p.connected);
     el.classList.toggle('done', !!p.finishPlace);
+    el.classList.toggle('passed', !!p.passed);
   }
 
   /** Used by the deal animation to tick a seat's count up as cards land. */
@@ -764,6 +775,38 @@
       void badge.offsetWidth; // restart the pop animation
       badge.style.animation = '';
     }
+  }
+
+  /** The turn order down the side: who plays when, whose turn it is, and how many cards each holds. */
+  function renderOrder(state, opts) {
+    const g = state.game;
+    const seated = state.players.filter(p => p.seated);
+    $('#order-list').innerHTML = seated.map((p, i) => {
+      const cls = [];
+      if (g && g.turnPlayerId === p.id) cls.push('turn');
+      if (p.passed) cls.push('passed');
+      if (p.finishPlace) cls.push('done');
+      if (!p.connected) cls.push('offline');
+      if (p.id === App.me.id) cls.push('me');
+      const tags = [];
+      if (p.finishPlace) tags.push('<span class="tag done ord-tag">' + ordinal(p.finishPlace) + '</span>');
+      else if (p.passed) tags.push('<span class="tag pass ord-tag">passed</span>');
+      if (!p.connected) tags.push('<span class="tag offline ord-tag">offline</span>');
+      if (g && g.loserId === p.id) tags.push('<span class="tag loser ord-tag">loser</span>');
+      const cards = opts && opts.empty ? 0 : p.cards;
+      return '<li class="' + cls.join(' ') + '" data-id="' + p.id + '">'
+        + '<span class="ord-idx">' + (i + 1) + '</span>'
+        + '<span class="avatar ord-avatar" style="background:' + avatarColor(p.id) + '">' + esc(p.nickname[0].toUpperCase()) + '</span>'
+        + '<span class="ord-name">' + esc(p.nickname) + (p.id === App.me.id ? ' (you)' : '') + '</span>'
+        + tags.join('')
+        + '<span class="ord-cards">' + cards + '<small> cards</small></span>'
+        + '<span class="row-timer timer hidden"></span>'
+        + '</li>';
+    }).join('');
+    const watching = state.players.filter(p => !p.seated);
+    const el = $('#order-watching');
+    el.classList.toggle('hidden', watching.length === 0);
+    el.textContent = 'Joining the next game: ' + watching.map(p => p.nickname).join(', ');
   }
 
   function renderSpectators(state) {
@@ -963,7 +1006,7 @@
     panel.classList.toggle('hidden', !show);
     if (!show) return;
     $('#vote-title').textContent = nameOf(g.finishOrder[0], state) + (g.finishOrder[0] === App.me.id ? ' finished first!' : ' finished first!');
-    $('#vote-tally').textContent = g.yesVotes + ' of ' + g.votersNeeded + ' want to restart.';
+    $('#vote-tally').textContent = g.yesVotes + ' of ' + g.voters + ' said yes; ' + g.votesNeeded + ' needed.';
     const mine = g.votes[state.you.id];
     $('#btn-vote-yes').classList.toggle('active', mine === true);
     $('#btn-vote-no').classList.toggle('active', mine === false);
@@ -988,7 +1031,7 @@
     const mine = g.votes[state.you.id];
     $('#btn-again-yes').classList.toggle('active', mine === true);
     $('#btn-again-no').classList.toggle('active', mine === false);
-    $('#gameover-tally').textContent = g.yesVotes + ' of ' + g.votersNeeded + ' want to play again (needs everyone).';
+    $('#gameover-tally').textContent = g.yesVotes + ' of ' + g.voters + ' want to play again; ' + g.votesNeeded + ' needed.';
     $('#btn-back-lobby').classList.toggle('hidden', !state.you.host);
   }
 

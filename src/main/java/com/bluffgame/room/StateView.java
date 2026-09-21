@@ -105,7 +105,8 @@ final class StateView {
         List<String> voters = game.voters();
         long yes = voters.stream().filter(id -> Boolean.TRUE.equals(game.restartVotes().get(id))).count();
         view.put("yesVotes", yes);
-        view.put("votersNeeded", voters.size());
+        view.put("votesNeeded", voters.size() / 2 + 1);
+        view.put("voters", voters.size());
         return view;
     }
 }

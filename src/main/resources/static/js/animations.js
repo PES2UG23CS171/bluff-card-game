@@ -117,7 +117,6 @@ window.FX = (() => {
     const el = document.createElement('div');
     el.className = 'bubble';
     el.textContent = text;
-    host.style.position = host.style.position || 'relative';
     host.appendChild(el);
     setTimeout(() => el.remove(), 1700);
   }

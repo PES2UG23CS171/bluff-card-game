@@ -20,8 +20,10 @@ create a room, share the code, play.
 - Pass to sit out the rest of the round; when everybody else has passed, the pot is set aside
   and the last player to play opens the next round.
 - Everyone sees how many cards each player holds; only you see your own hand.
-- The first player to empty their hand wins. A unanimous vote restarts the game right away,
+- The first player to empty their hand wins. A majority vote restarts the game right away,
   otherwise play continues until only one loser is left.
+- A play-order column shows who plays when, whose turn it is and how many cards everyone holds;
+  spectators are listed there too and are dealt in when the next game starts.
 - Turn timer so a player who walks away is passed automatically instead of stalling the table.
 - Chat panel that doubles as a game log.
 - Sound effects for plays, deals, bluff calls and verdicts, with a mute button.
@@ -76,7 +78,7 @@ While working on the front-end, the `dev` profile serves the static files straig
    player to play opens a new round.
 5. When you put down your last cards you are done as soon as the next player acts without
    calling (or calls and finds you honest). The first player out wins; the vote to restart opens
-   at that moment and passes only if everyone says yes. Otherwise the game continues until a
+   at that moment and passes as soon as a majority says yes. Otherwise the game continues until a
    single player is left holding cards: the loser.
 
 ## Settings
@@ -85,6 +87,7 @@ While working on the front-end, the `dev` profile serves the static files straig
 | --- | --- |
 | Decks | How many 52-card decks are shuffled together (1–8). |
 | Cards per player | How many cards each player is dealt from the shuffled pile. The lobby shows the maximum for the current number of players. |
+| Split equally | Ignore the number above and deal the whole pile out in equal shares to whoever is present when the game starts; leftovers stay out. |
 | Jokers | Adds two jokers per deck. A joker matches whatever rank was announced. |
 | Call window | Seconds the next player has to wait after a play so others can call bluff (0–30; 0 disables the wait). Calling is never delayed. |
 | Turn timer | Seconds a player has to act on their turn (10–300, or 0 for no limit). When it runs out it counts as a pass: they sit out the rest of the round, and if they were meant to open it the next player opens instead. Must be longer than the call window. |
