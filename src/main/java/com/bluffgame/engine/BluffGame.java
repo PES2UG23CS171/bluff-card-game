@@ -103,10 +103,11 @@ public final class BluffGame {
     private int round;
     private Rank roundRank;
     private String turnPlayerId;
+    private long turnStartedAt;
     private final List<Play> pot = new ArrayList<>();
     private Play lastPlay;
     private boolean challengeOpen;
-    private final Set<String> passedSinceLastPlay = new LinkedHashSet<>();
+    private final Set<String> passedThisRound = new LinkedHashSet<>();
     private int setAsideCards;
     private final List<String> finishOrder = new ArrayList<>();
     private String loserId;
@@ -215,7 +216,6 @@ public final class BluffGame {
         pot.add(play);
         lastPlay = play;
         challengeOpen = true;
-        passedSinceLastPlay.clear();
         events.add(new GameEvent("play")
                 .with("playerId", playerId)
                 .with("count", play.count())
@@ -225,7 +225,7 @@ public final class BluffGame {
         advanceTurn(seat);
     }
 
-    /** Declines to add cards this turn. Not allowed when the pot is empty. */
+    /** Sits the rest of this round out. Not allowed when the pot is empty. */
     public void pass(String playerId) {
         ensurePlaying();
         Seat seat = requireSeat(playerId);
@@ -239,7 +239,7 @@ public final class BluffGame {
         if (phase == Phase.GAME_OVER) {
             return;
         }
-        passedSinceLastPlay.add(playerId);
+        passedThisRound.add(playerId);
         events.add(new GameEvent("pass").with("playerId", playerId));
         if (everyoneElsePassed()) {
             endRoundAllPassed();
@@ -272,7 +272,7 @@ public final class BluffGame {
         pot.clear();
         lastPlay = null;
         challengeOpen = false;
-        passedSinceLastPlay.clear();
+        passedThisRound.clear();
 
         events.add(new GameEvent("bluffCalled")
                 .with("callerId", callerId)
@@ -360,6 +360,51 @@ public final class BluffGame {
         }
     }
 
+    /**
+     * Times out the player on turn once their timer has run down. It counts as a pass, so they sit
+     * out the rest of the round; if they were meant to open it, the next player opens instead.
+     * Driven by the room's clock.
+     *
+     * @return true when the game changed and events were emitted
+     */
+    public boolean expireTurn() {
+        Long endsAt = turnEndsAt();
+        if (endsAt == null || clock.getAsLong() < endsAt) {
+            return false;
+        }
+        Seat seat = seatsById.get(turnPlayerId);
+        if (seats.stream().noneMatch(other -> other != seat && other.canAct())) {
+            turnStartedAt = clock.getAsLong(); // nobody else could take over, so give them another go
+            return false;
+        }
+        passedThisRound.add(seat.playerId);
+        events.add(new GameEvent("turnTimedOut")
+                .with("playerId", seat.playerId)
+                .with("opening", pot.isEmpty()));
+        if (pot.isEmpty()) {
+            Seat next = nextActorAfter(seat.playerId);
+            if (next == null) {
+                // Everybody sat out a round that never got going: start a fresh one with the next player.
+                passedThisRound.clear();
+                beginRound(nextActorAfter(seat.playerId), "timeout");
+                return true;
+            }
+            turnPlayerId = next.playerId;
+            emitTurn();
+            return true;
+        }
+        closeChallenge();
+        if (phase == Phase.GAME_OVER) {
+            return true;
+        }
+        if (everyoneElsePassed()) {
+            endRoundAllPassed();
+            return true;
+        }
+        advanceTurn(seat);
+        return true;
+    }
+
     /** Returns and clears the events accumulated since the last drain. */
     public List<GameEvent> drainEvents() {
         List<GameEvent> drained = List.copyOf(events);
@@ -374,7 +419,7 @@ public final class BluffGame {
         roundRank = null;
         lastPlay = null;
         challengeOpen = false;
-        passedSinceLastPlay.clear();
+        passedThisRound.clear();
         if (starter == null) {
             starter = firstActor();
         } else if (!starter.canAct()) {
@@ -478,25 +523,34 @@ public final class BluffGame {
                 .filter(Seat::canAct)
                 .map(Seat::playerId)
                 .filter(id -> lastPlay == null || !id.equals(lastPlay.playerId()))
-                .allMatch(passedSinceLastPlay::contains);
+                .allMatch(passedThisRound::contains);
     }
 
     private void emitTurn() {
-        events.add(new GameEvent("turn").with("playerId", turnPlayerId).with("mustPlay", pot.isEmpty()));
+        turnStartedAt = clock.getAsLong();
+        events.add(new GameEvent("turn")
+                .with("playerId", turnPlayerId)
+                .with("mustPlay", pot.isEmpty())
+                .with("endsAt", turnEndsAt()));
     }
 
     // ---------------------------------------------------------------- lookups
 
-    private Seat firstActor() {
-        return seats.stream().filter(Seat::canAct).findFirst().orElse(null);
+    /** Can take a turn right now and has not passed this round. */
+    private boolean canTakeTurn(Seat seat) {
+        return seat.canAct() && !passedThisRound.contains(seat.playerId);
     }
 
-    /** The next seat clockwise from {@code playerId} that can act; may be that same seat, or null. */
+    private Seat firstActor() {
+        return seats.stream().filter(this::canTakeTurn).findFirst().orElse(null);
+    }
+
+    /** The next seat clockwise from {@code playerId} still in the round; may be that same seat, or null. */
     private Seat nextActorAfter(String playerId) {
         int index = seats.indexOf(seatsById.get(playerId));
         for (int step = 1; step <= seats.size(); step++) {
             Seat candidate = seats.get((index + step) % seats.size());
-            if (candidate.canAct()) {
+            if (canTakeTurn(candidate)) {
                 return candidate;
             }
         }
@@ -599,12 +653,21 @@ public final class BluffGame {
         return lastPlay.playedAt() + settings.callWindowSeconds() * 1000L;
     }
 
+    /** Epoch millis at which the player on turn is timed out, or null without a timer or a turn. */
+    public Long turnEndsAt() {
+        if (phase != Phase.PLAYING || turnPlayerId == null || settings.turnSeconds() == 0) {
+            return null;
+        }
+        return turnStartedAt + settings.turnSeconds() * 1000L;
+    }
+
     public int setAsideCards() {
         return setAsideCards;
     }
 
+    /** Players sitting out the rest of the current round. */
     public Set<String> passedPlayerIds() {
-        return Collections.unmodifiableSet(passedSinceLastPlay);
+        return Collections.unmodifiableSet(passedThisRound);
     }
 
     public List<String> finishOrder() {

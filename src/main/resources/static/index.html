@@ -76,6 +76,9 @@
             <label>Call window (seconds)
               <input type="number" name="callWindowSeconds" min="0" max="30">
             </label>
+            <label>Turn timer (seconds)
+              <input type="number" name="turnSeconds" min="0" max="300" step="5">
+            </label>
             <p class="hint wide" id="settings-hint"></p>
           </form>
           <div class="start-row">
@@ -92,7 +95,7 @@
     <header class="game-head">
       <div class="head-left">
         <span id="game-code" class="code"></span>
-        <span id="game-round" class="muted"></span>
+        <span id="game-rank" class="rank-label"></span>
       </div>
       <div id="game-status" class="head-center"></div>
       <div class="head-right">
@@ -147,6 +150,7 @@
         <span id="my-name"></span>
         <span id="my-count" class="muted"></span>
         <span id="turn-hint"></span>
+        <span id="turn-timer" class="timer hidden"></span>
       </div>
       <div id="hand"></div>
       <div id="controls">

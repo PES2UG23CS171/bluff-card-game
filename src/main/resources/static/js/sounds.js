@@ -119,6 +119,14 @@ window.Sounds = (() => {
       tone({ freq: 220, to: 110, type: 'sawtooth', duration: 0.7, gain: 0.22, filter: { type: 'lowpass', freq: 700 } });
       tone({ freq: 110, to: 55, type: 'square', duration: 0.7, gain: 0.08, delay: 0.05, filter: { type: 'lowpass', freq: 400 } });
     },
+    /** Last seconds of your turn. */
+    tick() {
+      tone({ freq: 1200, duration: 0.06, gain: 0.12 });
+    },
+    /** A turn ran out. */
+    timeout() {
+      tone({ freq: 240, to: 120, type: 'square', duration: 0.35, gain: 0.12, filter: { type: 'lowpass', freq: 600 } });
+    },
     yourTurn() {
       tone({ freq: 880, duration: 0.25, gain: 0.15 });
       tone({ freq: 1318.5, duration: 0.35, gain: 0.12, delay: 0.12 });

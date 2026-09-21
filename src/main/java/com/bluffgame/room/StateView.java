@@ -80,6 +80,8 @@ final class StateView {
         view.put("currentRank", game.currentRank());
         view.put("turnPlayerId", game.turnPlayerId());
         view.put("mustPlay", game.mustPlay());
+        view.put("turnEndsAt", game.turnEndsAt());
+        view.put("turnSeconds", game.settings().turnSeconds());
         view.put("potCount", game.potCardCount());
         BluffGame.Play last = game.lastPlay();
         if (last == null) {

@@ -261,8 +261,8 @@ window.FX = (() => {
   async function roundStart(ev, ctx) {
     if (ev.starterId == null) return;
     const mine = ev.starterId === ctx.me.id;
-    const why = { honest: 'was honest', caught: 'caught the bluff', allPassed: 'everyone passed', random: 'drawn at random' }[ev.reason];
-    await banner('Round ' + ev.round, 'small', 1300, (mine ? 'You open' : ctx.nameOf(ev.starterId) + ' opens')
+    const why = { honest: 'was honest', caught: 'caught the bluff', allPassed: 'everyone passed', random: 'drawn at random', timeout: 'everyone ran out of time' }[ev.reason];
+    await banner('New round', 'small', 1300, (mine ? 'You open' : ctx.nameOf(ev.starterId) + ' opens')
       + (why ? ' (' + why + ')' : ''), 450);
   }
 

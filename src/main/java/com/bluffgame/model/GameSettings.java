@@ -8,11 +8,15 @@ package com.bluffgame.model;
  * @param jokers            whether each deck contributes two wild jokers
  * @param callWindowSeconds minimum time after a play during which the next player must wait,
  *                          so everyone gets a chance to call a bluff (0 disables the wait)
+ * @param turnSeconds       how long a player has to act on their turn before they are passed
+ *                          automatically (0 disables the timer)
  */
-public record GameSettings(int decks, int cardsPerPlayer, boolean jokers, int callWindowSeconds) {
+public record GameSettings(int decks, int cardsPerPlayer, boolean jokers, int callWindowSeconds, int turnSeconds) {
 
     public static final int MAX_DECKS = 8;
     public static final int MAX_CALL_WINDOW_SECONDS = 30;
+    public static final int MIN_TURN_SECONDS = 10;
+    public static final int MAX_TURN_SECONDS = 300;
 
     public GameSettings {
         if (decks < 1 || decks > MAX_DECKS) {
@@ -28,10 +32,19 @@ public record GameSettings(int decks, int cardsPerPlayer, boolean jokers, int ca
         if (callWindowSeconds < 0 || callWindowSeconds > MAX_CALL_WINDOW_SECONDS) {
             throw new IllegalArgumentException("Call window must be between 0 and " + MAX_CALL_WINDOW_SECONDS + " seconds");
         }
+        if (turnSeconds < 0 || turnSeconds > MAX_TURN_SECONDS) {
+            throw new IllegalArgumentException("Turn timer must be between 0 and " + MAX_TURN_SECONDS + " seconds");
+        }
+        if (turnSeconds != 0 && turnSeconds < MIN_TURN_SECONDS) {
+            throw new IllegalArgumentException("Turn timer must be at least " + MIN_TURN_SECONDS + " seconds, or 0 to switch it off");
+        }
+        if (turnSeconds != 0 && turnSeconds <= callWindowSeconds) {
+            throw new IllegalArgumentException("Turn timer must be longer than the call window");
+        }
     }
 
     public static GameSettings defaults() {
-        return new GameSettings(1, 8, true, 5);
+        return new GameSettings(1, 8, true, 5, 30);
     }
 
     /** Cards available in the shuffled pile. */

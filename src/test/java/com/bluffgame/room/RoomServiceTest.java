@@ -134,7 +134,7 @@ class RoomServiceTest {
     void onlyTheHostChangesSettingsAndStartsAndNeedsTwoPlayers() {
         RoomService.Joined host = service.create("Alice", "s1");
         String code = host.room().code();
-        GameSettings settings = new GameSettings(2, 12, false, 3);
+        GameSettings settings = new GameSettings(2, 12, false, 3, 0);
 
         assertThatThrownBy(() -> service.startGame(code, host.player().id())).hasMessageContaining("two connected players");
         RoomService.Joined bob = service.join(code, "Bob", null, "s2");
@@ -211,7 +211,7 @@ class RoomServiceTest {
         RoomService.Joined host = service.create("Alice", "s1");
         String code = host.room().code();
         RoomService.Joined bob = service.join(code, "Bob", null, "s2");
-        service.updateSettings(code, host.player().id(), new GameSettings(1, 5, false, 0));
+        service.updateSettings(code, host.player().id(), new GameSettings(1, 5, false, 0, 0));
         service.startGame(code, host.player().id());
 
         String onTurn = (String) ((Map<?, ?>) outbound.lastState(host.player().id()).get("game")).get("turnPlayerId");
@@ -232,6 +232,26 @@ class RoomServiceTest {
         Map<String, Object> after = (Map<String, Object>) outbound.lastState(other).get("game");
         assertThat(after.get("potCount")).isEqualTo(0);
         assertThat(after.get("turnPlayerId")).isEqualTo(onTurn);
+    }
+
+    @Test
+    void theTurnTimerPassesPlayersWhoWalkAway() {
+        RoomService.Joined host = service.create("Alice", "s1");
+        String code = host.room().code();
+        RoomService.Joined bob = service.join(code, "Bob", null, "s2");
+        service.updateSettings(code, host.player().id(), new GameSettings(1, 5, false, 0, 10));
+        service.startGame(code, host.player().id());
+        String opener = host.room().game().turnPlayerId();
+
+        service.tickTurnTimers();
+        assertThat(host.room().game().turnPlayerId()).isEqualTo(opener);
+
+        clock.now = clock.now.plusSeconds(11);
+        service.tickTurnTimers();
+
+        assertThat(host.room().game().turnPlayerId()).isNotEqualTo(opener);
+        List<?> events = (List<?>) outbound.of(bob.player().id(), "update").getLast().get("events");
+        assertThat(events.toString()).contains("turnTimedOut");
     }
 
     @Test
@@ -259,7 +279,7 @@ class RoomServiceTest {
         RoomService.Joined host = service.create("Alice", "s1");
         String code = host.room().code();
         RoomService.Joined bob = service.join(code, "Bob", null, "s2");
-        service.updateSettings(code, host.player().id(), new GameSettings(1, 1, false, 0));
+        service.updateSettings(code, host.player().id(), new GameSettings(1, 1, false, 0, 0));
         service.startGame(code, host.player().id());
         String onTurn = (String) ((Map<?, ?>) outbound.lastState(host.player().id()).get("game")).get("turnPlayerId");
         String other = onTurn.equals(host.player().id()) ? bob.player().id() : host.player().id();

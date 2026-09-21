@@ -288,6 +288,7 @@
         if (!animated) Sounds.verdict(ev.honest);
         break;
       case 'potSetAside': Sounds.setAside(); break;
+      case 'turnTimedOut': Sounds.timeout(); break;
       case 'playerFinished': Sounds.finished(); break;
       case 'gameOver': if (ev.reason !== 'abandoned') Sounds.gameOver(); break;
       case 'deal': if (!animated) Sounds.shuffle(); break;
@@ -408,11 +409,15 @@
         appendLog('Cards dealt: ' + ev.cardsPerPlayer + ' each from a pile of ' + ev.pileSize + '.');
         break;
       case 'roundStart': {
-        const why = { honest: 'was honest', caught: 'caught the bluff', allPassed: 'everyone passed', random: 'drawn at random' }[ev.reason];
-        appendLog('Round ' + ev.round + ': ' + n(ev.starterId) + ' open' + (ev.starterId === App.me.id ? '' : 's')
+        const why = { honest: 'was honest', caught: 'caught the bluff', allPassed: 'everyone passed', random: 'drawn at random', timeout: 'everyone ran out of time' }[ev.reason];
+        appendLog('New round: ' + n(ev.starterId) + ' open' + (ev.starterId === App.me.id ? '' : 's')
           + (why ? ' (' + why + ')' : '') + '.');
         break;
       }
+      case 'turnTimedOut':
+        appendLog(n(ev.playerId) + ' ran out of time and ' + (ev.playerId === App.me.id ? 'are' : 'is') + ' out of this round.');
+        if (ev.playerId === App.me.id) toast('You ran out of time', 'error');
+        break;
       case 'play':
         appendLog(n(ev.playerId) + ' put down ' + ev.count + ' × ' + ev.rank + '.');
         break;
@@ -506,6 +511,7 @@
       cardsPerPlayer: Math.max(1, parseInt(f.cardsPerPlayer.value, 10) || 1),
       jokers: f.jokers.checked,
       callWindowSeconds: Math.min(30, Math.max(0, parseInt(f.callWindowSeconds.value, 10) || 0)),
+      turnSeconds: Math.min(300, Math.max(0, parseInt(f.turnSeconds.value, 10) || 0)),
     };
   }
 
@@ -516,7 +522,8 @@
     const max = players ? Math.floor(total / players) : total;
     $('#settings-hint').textContent = total + ' cards in the pile'
       + (players ? '; up to ' + max + ' per player with ' + players + ' connected.' : '.')
-      + (s.callWindowSeconds ? ' After each play the next player waits ' + s.callWindowSeconds + 's so others can call bluff.' : ' No waiting after plays.');
+      + (s.callWindowSeconds ? ' After each play the next player waits ' + s.callWindowSeconds + 's so others can call bluff.' : ' No waiting after plays.')
+      + (s.turnSeconds ? ' A player who does nothing for ' + s.turnSeconds + 's is passed automatically.' : ' No turn time limit.');
   }
 
   let settingsTimer = null;
@@ -534,7 +541,9 @@
     const g = state.game;
     const me = state.you;
     $('#game-code').textContent = state.room.code;
-    $('#game-round').textContent = g ? 'Round ' + g.round : '';
+    const rankLabel = $('#game-rank');
+    rankLabel.textContent = g ? (g.currentRank ? 'Rank: ' + g.currentRank : 'No rank yet') : '';
+    rankLabel.classList.toggle('set', !!(g && g.currentRank));
     $('#game-status').textContent = statusText(state);
     $('#btn-end-game').classList.toggle('hidden', !me.host);
 
@@ -559,7 +568,61 @@
     }
     renderVotePanel(state);
     renderGameOver(state);
+    renderTurnTimer();
     refreshControls(state);
+  }
+
+  // ------------------------------------------------------------ turn timer
+
+  let timerInterval = null;
+  let lastTickSecond = null;
+  let lastTimerEnd = null;
+
+  function stopTimerLoop() {
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+    lastTickSecond = null;
+  }
+
+  /** Counts down the turn timer on the seat of the player on turn (and next to your hand when it is you). */
+  function renderTurnTimer() {
+    const s = App.state;
+    const g = s && s.game;
+    const endsAt = g && g.phase === 'PLAYING' && App.screen === 'game' ? g.turnEndsAt : null;
+    const mine = $('#turn-timer');
+    const seatTimers = $$('.seat-timer');
+    if (!endsAt) {
+      mine.classList.add('hidden');
+      seatTimers.forEach(t => t.classList.add('hidden'));
+      stopTimerLoop();
+      return;
+    }
+    if (endsAt !== lastTimerEnd) {
+      lastTimerEnd = endsAt;
+      lastTickSecond = null;
+    }
+    const remaining = Math.max(0, Math.ceil((endsAt - serverNow()) / 1000));
+    const urgent = remaining <= 10;
+    const isMe = g.turnPlayerId === App.me.id;
+    mine.classList.toggle('hidden', !isMe);
+    mine.textContent = remaining + 's';
+    mine.classList.toggle('urgent', urgent);
+    seatTimers.forEach(t => {
+      const seat = t.closest('.seat');
+      const on = !!seat && seat.dataset.id === g.turnPlayerId;
+      t.classList.toggle('hidden', !on);
+      if (on) {
+        t.textContent = remaining + 's';
+        t.classList.toggle('urgent', urgent);
+      }
+    });
+    if (isMe && remaining <= 5 && remaining > 0 && lastTickSecond !== remaining) {
+      lastTickSecond = remaining;
+      Sounds.tick();
+    }
+    if (!timerInterval) timerInterval = setInterval(renderTurnTimer, 250);
   }
 
   function statusText(state) {
@@ -594,7 +657,7 @@
         el.className = 'seat';
         el.dataset.id = p.id;
         el.innerHTML = '<div class="seat-pile"></div><div class="avatar"></div><div class="seat-name"></div>'
-          + '<div class="seat-cards"></div><div class="seat-badges"></div>';
+          + '<div class="seat-cards"></div><div class="seat-badges"></div><div class="seat-timer hidden"></div>';
         container.appendChild(el);
       }
       existing.delete(p.id);

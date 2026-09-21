@@ -256,6 +256,20 @@ public class RoomService {
 
     // ---------------------------------------------------------------- housekeeping
 
+    /** Passes (or skips) players who let their turn timer run down. */
+    @Scheduled(fixedDelay = 1_000)
+    public void tickTurnTimers() {
+        for (Room room : List.copyOf(rooms.values())) {
+            synchronized (room) {
+                BluffGame game = room.game();
+                if (game != null && game.phase() == BluffGame.Phase.PLAYING && game.expireTurn()) {
+                    room.touch(clock.instant());
+                    broadcast(room, game.drainEvents());
+                }
+            }
+        }
+    }
+
     /** Drops players who never came back and rooms nobody uses any more. */
     @Scheduled(fixedDelay = 15_000)
     public void cleanup() {

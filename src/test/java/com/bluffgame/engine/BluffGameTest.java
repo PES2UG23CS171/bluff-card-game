@@ -40,7 +40,7 @@ class BluffGameTest {
         hands.put("A", List.of(K_SPADES, K_HEARTS, Q_CLUBS));
         hands.put("B", List.of(A_SPADES, FIVE_DIAMONDS, JOKER));
         hands.put("C", List.of(NINE_CLUBS, K_DIAMONDS));
-        return BluffGame.startWithHands(new GameSettings(1, 3, true, callWindowSeconds), hands, "A", clock::get);
+        return BluffGame.startWithHands(new GameSettings(1, 3, true, callWindowSeconds, 0), hands, "A", clock::get);
     }
 
     private static List<String> kinds(List<GameEvent> events) {
@@ -51,7 +51,7 @@ class BluffGameTest {
 
     @Test
     void startDealsTheConfiguredNumberOfCardsToEveryPlayer() {
-        GameSettings settings = new GameSettings(2, 10, true, 5);
+        GameSettings settings = new GameSettings(2, 10, true, 5, 0);
         BluffGame dealt = BluffGame.start(settings, List.of("p1", "p2", "p3", "p4"), new Random(42), clock::get);
 
         assertThat(dealt.seats()).hasSize(4);
@@ -66,7 +66,7 @@ class BluffGameTest {
 
     @Test
     void startRejectsTooFewPlayersOrTooManyCards() {
-        GameSettings settings = new GameSettings(1, 20, false, 5);
+        GameSettings settings = new GameSettings(1, 20, false, 5, 0);
 
         assertThatThrownBy(() -> BluffGame.start(settings, List.of("solo"), new Random(), clock::get))
                 .isInstanceOf(GameException.class)
@@ -140,6 +140,25 @@ class BluffGameTest {
         GameEvent roundStart = events.get(4);
         assertThat(roundStart.get("starterId")).isEqualTo("B");
         assertThat(roundStart.get("reason")).isEqualTo("allPassed");
+    }
+
+    @Test
+    void aPlayerWhoPassedSitsOutTheRestOfTheRound() {
+        game.play("A", List.of(1), Rank.KING);
+        game.pass("B");
+        game.play("C", List.of(8), Rank.KING);
+        assertThat(game.turnPlayerId()).isEqualTo("A");
+        assertThat(game.passedPlayerIds()).containsExactly("B");
+
+        game.play("A", List.of(2), Rank.KING);
+        assertThat(game.turnPlayerId()).isEqualTo("C"); // straight past B
+
+        game.pass("C");
+
+        assertThat(game.round()).isEqualTo(2); // B and C are out, so the round is over and A opens
+        assertThat(game.turnPlayerId()).isEqualTo("A");
+        assertThat(game.setAsideCards()).isEqualTo(3);
+        assertThat(game.passedPlayerIds()).isEmpty();
     }
 
     // ------------------------------------------------------------ calling bluff
@@ -230,7 +249,7 @@ class BluffGameTest {
         Map<String, List<Card>> hands = new LinkedHashMap<>();
         hands.put("A", List.of(K_SPADES, K_HEARTS));
         hands.put("B", List.of(A_SPADES, FIVE_DIAMONDS));
-        BluffGame duel = BluffGame.startWithHands(new GameSettings(1, 2, false, 10), hands, "A", clock::get);
+        BluffGame duel = BluffGame.startWithHands(new GameSettings(1, 2, false, 10, 0), hands, "A", clock::get);
 
         duel.play("A", List.of(1), Rank.KING);
 
@@ -298,7 +317,7 @@ class BluffGameTest {
         Map<String, List<Card>> hands = new LinkedHashMap<>();
         hands.put("A", List.of(K_SPADES));
         hands.put("B", List.of(A_SPADES, FIVE_DIAMONDS));
-        BluffGame duel = BluffGame.startWithHands(new GameSettings(1, 2, false, 0), hands, "A", clock::get);
+        BluffGame duel = BluffGame.startWithHands(new GameSettings(1, 2, false, 0, 0), hands, "A", clock::get);
         duel.drainEvents();
 
         duel.play("A", List.of(1), Rank.KING);
@@ -329,6 +348,50 @@ class BluffGameTest {
         game.setConnected("C", false);
         game.vote("C", false);
         assertThat(game.vote("A", true)).isTrue(); // offline players do not block a restart
+    }
+
+    // ------------------------------------------------------------ turn timer
+
+    @Test
+    void anAfkPlayerIsSkippedWhenOpeningAndPassedMidRound() {
+        Map<String, List<Card>> hands = new LinkedHashMap<>();
+        hands.put("A", List.of(K_SPADES, K_HEARTS, Q_CLUBS));
+        hands.put("B", List.of(A_SPADES, FIVE_DIAMONDS, JOKER));
+        hands.put("C", List.of(NINE_CLUBS, K_DIAMONDS));
+        BluffGame timed = BluffGame.startWithHands(new GameSettings(1, 3, true, 0, 10), hands, "A", clock::get);
+        timed.drainEvents();
+
+        assertThat(timed.turnEndsAt()).isEqualTo(1_000_000L + 10_000L);
+        assertThat(timed.expireTurn()).isFalse();
+
+        clock.addAndGet(10_000L);
+        assertThat(timed.expireTurn()).isTrue(); // A never opened: A sits this round out and B opens
+        assertThat(timed.turnPlayerId()).isEqualTo("B");
+        assertThat(timed.mustPlay()).isTrue();
+        assertThat(timed.passedPlayerIds()).containsExactly("A");
+        List<GameEvent> events = timed.drainEvents();
+        assertThat(kinds(events)).containsExactly("turnTimedOut", "turn");
+        assertThat(events.get(0).get("opening")).isEqualTo(true);
+        assertThat(timed.turnEndsAt()).isEqualTo(clock.get() + 10_000L);
+
+        timed.play("B", List.of(4), Rank.ACE);
+        assertThat(timed.turnPlayerId()).isEqualTo("C"); // A is skipped for the rest of the round
+        timed.drainEvents();
+        clock.addAndGet(10_000L);
+        assertThat(timed.expireTurn()).isTrue(); // C is passed too: everyone else is out, B opens again
+        assertThat(timed.drainEvents().get(0).get("opening")).isEqualTo(false);
+        assertThat(timed.round()).isEqualTo(2);
+        assertThat(timed.turnPlayerId()).isEqualTo("B");
+        assertThat(timed.setAsideCards()).isEqualTo(1);
+        assertThat(timed.passedPlayerIds()).isEmpty();
+    }
+
+    @Test
+    void thereIsNoTimeLimitWhenTheTimerIsOff() {
+        assertThat(game.turnEndsAt()).isNull();
+        clock.addAndGet(1_000_000L);
+        assertThat(game.expireTurn()).isFalse();
+        assertThat(game.turnPlayerId()).isEqualTo("A");
     }
 
     // ------------------------------------------------------------ connectivity
