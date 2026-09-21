@@ -184,7 +184,11 @@ input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
   transform: translateY(var(--lift, 0px)) rotate(var(--rot, 0deg));
   transition: transform .18s, left .3s, opacity .3s; cursor: pointer;
 }
-#hand .card:hover { transform: translateY(calc(var(--lift, 0px) - 12px)) rotate(var(--rot, 0deg)); z-index: 500 !important; }
+/* Cards keep their left-to-right stacking even when lifted, so every rank corner stays readable.
+   The hover lift is limited to mouse devices because touch screens keep :hover after a tap. */
+@media (hover: hover) and (pointer: fine) {
+  #hand .card:hover { transform: translateY(calc(var(--lift, 0px) - 12px)) rotate(var(--rot, 0deg)); }
+}
 #hand .card.selected { transform: translateY(calc(var(--lift, 0px) - 30px)) rotate(var(--rot, 0deg)); }
 #hand .card.selected .card-face { box-shadow: 0 0 0 3px var(--accent), 0 6px 14px rgba(0,0,0,.5); }
 #hand .card.deal-in { animation: dealIn .35s both; }
