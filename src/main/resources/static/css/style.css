@@ -206,7 +206,7 @@ input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
 #vote-panel { top: 12px; right: 12px; width: 290px; }
 .vote-buttons { display: flex; gap: 8px; margin: 10px 0 4px; justify-content: center; }
 #gameover-panel { left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(460px, 92vw); text-align: center; }
-#standings { text-align: left; margin: 8px auto; padding-left: 28px; max-width: 320px; line-height: 1.7; }
+#standings { list-style: none; text-align: left; margin: 8px auto; padding: 0 0 0 12px; max-width: 320px; line-height: 1.7; }
 #standings .loser { color: #ff8a8e; }
 
 /* ---------------------------------------------------------------- cards */
@@ -254,7 +254,7 @@ input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
 /* ---------------------------------------------------------------- effects */
 #fx-layer { position: fixed; inset: 0; pointer-events: none; z-index: 50; overflow: hidden; }
 #fx-layer .card { position: absolute; left: 0; top: 0; will-change: transform; }
-#banner-layer { position: fixed; inset: 0; pointer-events: none; display: grid; place-items: center; z-index: 60; }
+#banner-layer { position: absolute; inset: 0; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; z-index: 60; }
 .banner {
   padding: 16px 34px; border-radius: 18px; font-size: 2.1rem; font-weight: 900; letter-spacing: .04em;
   background: rgba(0,0,0,.78); color: #fff; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,.6);
@@ -279,14 +279,18 @@ input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
 .bubble::after { content: ''; position: absolute; left: 50%; bottom: -6px; border: 6px solid transparent; border-top-color: #fff; border-bottom: 0; transform: translateX(-50%); }
 @keyframes bubbleIn { 0% { opacity: 0; transform: translate(-50%, -80%) } 15% { opacity: 1; transform: translate(-50%, -100%) } 80% { opacity: 1 } 100% { opacity: 0 } }
 
-#toasts { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; z-index: 70; pointer-events: none; align-items: center; }
+#toasts { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; z-index: 70; pointer-events: none; align-items: center; }
 .toast { background: rgba(0,0,0,.85); padding: 8px 14px; border-radius: 10px; animation: toastIn 3.2s forwards; font-size: .92rem; box-shadow: 0 6px 20px rgba(0,0,0,.5); }
 .toast.error { background: #7a1f24; }
 .toast.good { background: #1f5a2c; }
-@keyframes toastIn { 0% { opacity: 0; transform: translateY(10px) } 10% { opacity: 1; transform: translateY(0) } 85% { opacity: 1 } 100% { opacity: 0 } }
+@keyframes toastIn { 0% { opacity: 0; transform: translateY(-10px) } 10% { opacity: 1; transform: translateY(0) } 85% { opacity: 1 } 100% { opacity: 0 } }
 #reconnecting { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); background: #7a4a1f; padding: 8px 16px; border-radius: 10px; z-index: 80; font-weight: 700; }
 
 @media (max-width: 640px) {
+  .game-head { padding: 0 8px; gap: 6px; }
+  .game-head button { padding: 6px 8px; font-size: .82rem; white-space: nowrap; }
+  .head-center { font-size: .85rem; }
+  #game-round { display: none; }
   .seat { width: 104px; }
   #rank-picker button { width: 34px; }
   #hand { height: 118px; }

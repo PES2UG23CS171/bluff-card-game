@@ -279,7 +279,14 @@
 
   /** What the animation module needs from the app. */
   function ctx() {
-    return { me: App.me, nameOf, playerById, selected: App.selected, renderHand, setSeatCount };
+    return {
+      me: App.me,
+      nameOf: id => nameOf(id),
+      playerById,
+      setSeatCount,
+      handSlot,
+      renderPotNow: () => renderPot(App.state, {}),
+    };
   }
 
   // ------------------------------------------------------------ screens
@@ -374,8 +381,9 @@
         appendLog('Cards dealt: ' + ev.cardsPerPlayer + ' each from a pile of ' + ev.pileSize + '.');
         break;
       case 'roundStart': {
-        const why = { honest: 'was honest', caught: 'caught the bluff', allPassed: 'played last', random: 'was drawn' }[ev.reason];
-        appendLog('Round ' + ev.round + ': ' + n(ev.starterId) + (why ? ' (' + why + ')' : '') + ' open' + (ev.starterId === App.me.id ? '' : 's') + '.');
+        const why = { honest: 'was honest', caught: 'caught the bluff', allPassed: 'everyone passed', random: 'drawn at random' }[ev.reason];
+        appendLog('Round ' + ev.round + ': ' + n(ev.starterId) + ' open' + (ev.starterId === App.me.id ? '' : 's')
+          + (why ? ' (' + why + ')' : '') + '.');
         break;
       }
       case 'play':
@@ -661,15 +669,30 @@
 
   // ------------------------------------------------------------ hand
 
+  const HAND_CARD_W = 74;
+  const HAND_CARD_H = 104;
+
+  /** Horizontal layout of an n-card fan inside the hand strip. */
+  function handLayout(n) {
+    const width = $('#hand').clientWidth || 600;
+    const spacing = n > 1 ? Math.min(HAND_CARD_W * 0.62, (width - HAND_CARD_W - 8) / (n - 1)) : 0;
+    const startX = (width - ((n - 1) * spacing + HAND_CARD_W)) / 2;
+    return { spacing, startX };
+  }
+
+  /** Viewport centre of the i-th card of an n-card hand, used to aim dealt cards. */
+  function handSlot(i, n) {
+    const r = $('#hand').getBoundingClientRect();
+    const { spacing, startX } = handLayout(n);
+    return { x: r.left + startX + i * spacing + HAND_CARD_W / 2, y: r.bottom - 4 - HAND_CARD_H / 2 };
+  }
+
   function renderHand(hand, options) {
     const opts = options || {};
     const el = $('#hand');
     const existing = new Map($$('.card', el).map(c => [Number(c.dataset.id), c]));
     const n = hand.length;
-    const width = el.clientWidth || 600;
-    const cardW = 74;
-    const spacing = n > 1 ? Math.min(cardW * 0.62, (width - cardW - 8) / (n - 1)) : 0;
-    const startX = (width - ((n - 1) * spacing + cardW)) / 2;
+    const { spacing, startX } = handLayout(n);
     const keep = new Set();
     hand.forEach((card, i) => {
       let c = existing.get(card.id);
