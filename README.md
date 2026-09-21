@@ -1,6 +1,122 @@
 # Bluff Card Game
 
 Real-time multiplayer **Bluff** (also known as *Cheat* / *I Doubt It*) for the browser,
-built with Java 21, Spring Boot and plain WebSockets.
+built with Java 21, Spring Boot 3.5 and plain WebSockets. No accounts, no database:
+create a room, share the code, play.
 
-_Work in progress — see the commit history for progress._
+## Features
+
+- Rooms with six-letter codes and shareable invite links; players pick their own nickname.
+- Host-configurable rules: number of decks, cards dealt to each player (drawn at random
+  from the shuffled decks), jokers on or off (jokers count as any rank), whether the rank is
+  fixed per round or declared with every play, and a "call window" that stops the next player
+  from acting for a few seconds so everyone gets a chance to call a bluff.
+- Play any number of cards from your hand and announce any rank, whether you hold it or not.
+- Anyone still holding cards can call bluff until the next player acts; the pot goes to
+  whoever was wrong.
+- Pass instead of playing; when everybody else has passed, the pot is set aside and the last
+  player to play opens the next round.
+- Everyone sees how many cards each player holds; only you see your own hand.
+- The first player to empty their hand wins. A unanimous vote restarts the game right away,
+  otherwise play continues until only one loser is left.
+- Chat panel that doubles as a game log.
+- Animated dealing, plays, passes, bluff reveals and pot moves.
+- Reloading the page puts you straight back in your seat; offline players are skipped and can
+  rejoin; late joiners watch and get a seat in the next game.
+
+## Running it
+
+Requirements: JDK 21 (or newer). Maven is bundled through the wrapper.
+
+```bash
+./mvnw spring-boot:run
+```
+
+Then open <http://localhost:8080>. Everyone else on the same network can join with the
+machine's LAN address, e.g. `http://192.168.1.20:8080`, or by pasting the room code.
+Use `--server.port=9000` (or `-Dspring-boot.run.arguments=--server.port=9000`) to change the port.
+
+To build a runnable jar:
+
+```bash
+./mvnw package
+java -jar target/bluff-card-game-0.1.0-SNAPSHOT.jar
+```
+
+To run the tests:
+
+```bash
+./mvnw test
+```
+
+While working on the front-end, the `dev` profile serves the static files straight from
+`src/main/resources/static`, so a browser refresh is enough to see changes:
+
+```bash
+./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+## How a game goes
+
+1. The host sets the rules in the lobby and presses **Start**. Everyone connected gets a seat.
+   Each player is dealt the configured number of cards from the shuffled decks; the rest of the
+   pile stays out of the game.
+2. A starter is drawn at random and opens round 1 by selecting cards from their hand and
+   announcing a rank (A, 2 … 10, J, Q, K). The cards go face down into the pot.
+3. Until the next player acts, every other player who still holds cards can **call bluff**. The
+   play is revealed: if it was honest the caller takes the entire pot, if it was a lie the liar
+   does. The honest player (or the successful caller) then opens a new round.
+4. Otherwise the next player either adds cards to the pot with the same announcement (round
+   mode) or their own announcement (free mode), or **passes**. Once everyone but the last
+   player has passed, the pot is set aside and the last player to play opens a new round.
+5. When you put down your last cards you are done as soon as the next player acts without
+   calling (or calls and finds you honest). The first player out wins; the vote to restart opens
+   at that moment and passes only if everyone says yes. Otherwise the game continues until a
+   single player is left holding cards: the loser.
+
+## Settings
+
+| Setting | Meaning |
+| --- | --- |
+| Decks | How many 52-card decks are shuffled together (1–8). |
+| Cards per player | How many cards each player is dealt from the shuffled pile. The lobby shows the maximum for the current number of players. |
+| Jokers | Adds two jokers per deck. A joker matches whatever rank was announced. |
+| Rank rule | **Round rank**: whoever opens a round picks the rank and everyone else in that round claims the same. **Free**: every play announces its own rank. |
+| Call window | Seconds the next player has to wait after a play so others can call bluff (0–30; 0 disables the wait). Calling is never delayed. |
+
+## Project layout
+
+```
+src/main/java/com/bluffgame
+├── model/    Card, Rank, Suit, DeckFactory, GameSettings, RankMode
+├── engine/   BluffGame: the rules, independent of any transport; emits GameEvents
+├── room/     Room, RoomPlayer, RoomService (lobbies, seats, chat, per-player state views)
+└── ws/       WebSocket endpoint (/ws), session registry and configuration
+src/main/resources/static
+├── index.html, css/style.css
+└── js/cards.js (card DOM), js/animations.js (table effects), js/app.js (client)
+```
+
+Every mutation of a room runs under the room's lock, then each connected player receives an
+`update` message with the events that happened (for animations) and their personal view of
+the state (their own hand, everyone else's card counts).
+
+### WebSocket protocol
+
+Client → server messages are JSON objects with a `type`:
+
+`create {nickname}`, `join {code, nickname, token?}`, `settings {settings}`, `start`,
+`play {cardIds, rank}`, `pass`, `callBluff`, `vote {yes}`, `chat {text}`, `kick {playerId}`,
+`endGame`, `leave`.
+
+Server → client: `welcome {playerId, token, roomCode, nickname}`, `update {events, state}`,
+`chat {message}`, `chatHistory {messages}`, `kicked {message}`, `error {message, action}`.
+
+## Tests
+
+- `BluffGameTest` scripts hands through every rule: dealing, turn order, round/free rank modes,
+  passing and set-aside, honest and caught calls, jokers, the call window, finishing, game over,
+  the restart vote and offline/departed players.
+- `RoomServiceTest` covers rooms, joining, token reconnection, host powers, spectators, chat
+  history, host hand-over and clean-up.
+- `WebSocketIntegrationTest` boots the app and drives two real socket clients through a game.
