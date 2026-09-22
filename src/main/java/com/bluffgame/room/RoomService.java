@@ -17,8 +17,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +35,8 @@ import org.springframework.stereotype.Service;
 public class RoomService {
 
     private static final Logger log = LoggerFactory.getLogger(RoomService.class);
+    /** Server-side only: prints what was really played so the host's terminal can see who bluffs. */
+    private static final Logger truth = LoggerFactory.getLogger("com.bluffgame.truth");
     private static final String CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     private static final int CODE_LENGTH = 6;
     private static final int MAX_NICKNAME = 16;
@@ -147,6 +151,61 @@ public class RoomService {
         }
     }
 
+    /** Minimum votes to remove a player, given how many others can vote: a majority, and never a lone voter. */
+    static int kickVotesNeeded(int eligibleVoters) {
+        return Math.max(2, eligibleVoters / 2 + 1);
+    }
+
+    /** Toggles {@code voterId}'s vote to remove {@code targetId}; a majority of the others removes them. */
+    public void voteKick(String code, String voterId, String targetId) {
+        Room room = requireRoom(code);
+        synchronized (room) {
+            RoomPlayer voter = room.player(voterId).orElseThrow(() -> new GameException("You are not in this room"));
+            RoomPlayer target = room.player(targetId).orElseThrow(() -> new GameException("That player is not here"));
+            if (voterId.equals(targetId)) {
+                throw new GameException("You cannot vote against yourself");
+            }
+            Set<String> eligible = kickVoters(room, targetId);
+            if (!eligible.contains(voterId)) {
+                throw new GameException("Only players at the table can vote");
+            }
+            int needed = kickVotesNeeded(eligible.size());
+            if (needed > eligible.size()) {
+                throw new GameException("Voting someone out needs at least three players");
+            }
+            Set<String> votes = room.kickVotesFor(targetId);
+            boolean added = votes.add(voterId);
+            if (!added) {
+                votes.remove(voterId);
+            }
+            votes.retainAll(eligible);
+            room.touch(clock.instant());
+            if (votes.size() >= needed) {
+                room.kickVotes().remove(targetId);
+                outbound.send(targetId, Map.of("type", "kicked", "message", "The other players voted you out of the room"));
+                removePlayer(room, target, target.nickname() + " was voted out by " + votes.size() + " players");
+                return;
+            }
+            system(room, voter.nickname() + (added ? " voted to remove " : " withdrew the vote to remove ")
+                    + target.nickname() + " (" + votes.size() + " of " + needed + " needed)");
+            broadcast(room, List.of(new GameEvent("kickVote")
+                    .with("targetId", targetId)
+                    .with("voterId", voterId)
+                    .with("votes", votes.size())
+                    .with("needed", needed)));
+        }
+    }
+
+    /** Who may vote to remove {@code targetId}: everyone else connected, and during a game only those seated. */
+    Set<String> kickVoters(Room room, String targetId) {
+        return room.players().stream()
+                .filter(RoomPlayer::connected)
+                .filter(p -> !p.id().equals(targetId))
+                .filter(p -> room.game() == null || room.isSeated(p.id()))
+                .map(RoomPlayer::id)
+                .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
+    }
+
     public void kick(String code, String hostId, String targetId) {
         Room room = requireRoom(code);
         synchronized (room) {
@@ -199,6 +258,7 @@ public class RoomService {
                 throw new GameException("There is no game to end");
             }
             room.setGame(null);
+            room.clearKickVotes();
             room.touch(clock.instant());
             system(room, "The host ended the game. Back to the lobby.");
             broadcast(room, List.of(new GameEvent("gameEnded")));
@@ -208,15 +268,33 @@ public class RoomService {
     // ---------------------------------------------------------------- in-game actions
 
     public void play(String code, String playerId, List<Integer> cardIds, Rank rank) {
-        inGame(code, playerId, game -> game.play(playerId, cardIds, rank));
+        inGame(code, playerId, (room, game) -> {
+            game.play(playerId, cardIds, rank);
+            BluffGame.Play play = game.lastPlay();
+            if (play != null && game.challengeOpen() && play.playerId().equals(playerId)) {
+                truth.info("[{}] {} claims {} x {} -> {} ({})", room.code(), nickname(room, playerId),
+                        play.count(), rank.label(), play.honest() ? "HONEST" : "BLUFF", describe(play.cards()));
+            }
+        });
     }
 
     public void pass(String code, String playerId) {
-        inGame(code, playerId, game -> game.pass(playerId));
+        inGame(code, playerId, (room, game) -> game.pass(playerId));
     }
 
     public void callBluff(String code, String playerId) {
-        inGame(code, playerId, game -> game.callBluff(playerId));
+        inGame(code, playerId, (room, game) -> {
+            BluffGame.Play challenged = game.lastPlay();
+            int potBefore = game.potCardCount();
+            game.callBluff(playerId);
+            if (challenged != null) {
+                boolean honest = challenged.honest();
+                String receiver = honest ? playerId : challenged.playerId();
+                truth.info("[{}] {} calls bluff on {} -> {} ({}), {} takes {} cards", room.code(),
+                        nickname(room, playerId), nickname(room, challenged.playerId()),
+                        honest ? "HONEST" : "BLUFF", describe(challenged.cards()), nickname(room, receiver), potBefore);
+            }
+        });
     }
 
     public void vote(String code, String playerId, boolean yes) {
@@ -302,11 +380,11 @@ public class RoomService {
 
     // ---------------------------------------------------------------- internals
 
-    private void inGame(String code, String playerId, Consumer<BluffGame> action) {
+    private void inGame(String code, String playerId, BiConsumer<Room, BluffGame> action) {
         Room room = requireRoom(code);
         synchronized (room) {
             BluffGame game = requireGame(room, playerId);
-            action.accept(game);
+            action.accept(room, game);
             room.touch(clock.instant());
             broadcast(room, game.drainEvents());
         }
@@ -323,6 +401,7 @@ public class RoomService {
         GameSettings rules = room.settings().effective(seated.size());
         BluffGame game = BluffGame.start(rules, seated, random, clock::millis);
         room.setGame(game);
+        room.clearKickVotes();
         room.touch(clock.instant());
         List<GameEvent> events = new ArrayList<>(leadingEvents);
         events.addAll(game.drainEvents());
@@ -342,6 +421,7 @@ public class RoomService {
 
     private void removePlayer(Room room, RoomPlayer player, String announcement) {
         room.mutablePlayers().remove(player);
+        room.dropKickVotes(player.id());
         room.touch(clock.instant());
         List<GameEvent> events = new ArrayList<>();
         if (room.game() != null) {
@@ -426,6 +506,16 @@ public class RoomService {
         if (!room.isHost(playerId)) {
             throw new GameException("Only the host can do that");
         }
+    }
+
+    private static String nickname(Room room, String playerId) {
+        return room.player(playerId).map(RoomPlayer::nickname).orElse(playerId);
+    }
+
+    private static String describe(List<com.bluffgame.model.Card> cards) {
+        return cards.stream()
+                .map(card -> card.isJoker() ? "JOKER" : card.rank().label() + card.suit().symbol())
+                .collect(Collectors.joining(" "));
     }
 
     private String cleanNickname(String nickname) {

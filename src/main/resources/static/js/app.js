@@ -476,6 +476,7 @@
       + (p.host ? '<span class="tag host">host</span>' : '')
       + (p.id === me.id ? '<span class="tag">you</span>' : '')
       + (p.connected ? '' : '<span class="tag offline">offline</span>')
+      + kickVoteButton(p, s)
       + (me.host && p.id !== me.id ? '<button class="ghost small kick" data-id="' + p.id + '">Kick</button>' : '')
       + '</li>'
     )).join('');
@@ -801,12 +802,23 @@
         + tags.join('')
         + '<span class="ord-cards">' + cards + '<small> cards</small></span>'
         + '<span class="row-timer timer hidden"></span>'
+        + kickVoteButton(p, state)
         + '</li>';
     }).join('');
     const watching = state.players.filter(p => !p.seated);
     const el = $('#order-watching');
     el.classList.toggle('hidden', watching.length === 0);
     el.textContent = 'Joining the next game: ' + watching.map(p => p.nickname).join(', ');
+  }
+
+  /** A "vote out" toggle for another player, showing how the vote stands. */
+  function kickVoteButton(p, state) {
+    if (p.id === App.me.id || !p.kickable) return '';
+    const mine = (state.you.kickVotes || []).indexOf(p.id) >= 0;
+    const votes = p.kickVotes || 0;
+    const label = (mine ? 'Voted out' : 'Vote out') + (votes ? ' ' + votes + '/' + p.kickNeeded : '');
+    return '<button type="button" class="ghost small kick-vote' + (mine ? ' active' : '') + '" data-id="' + p.id
+      + '" title="Vote to remove this player; ' + p.kickNeeded + ' votes are needed">' + label + '</button>';
   }
 
   function renderSpectators(state) {
@@ -1103,8 +1115,17 @@
     $('#btn-back-lobby').addEventListener('click', () => send({ type: 'endGame' }));
     $('#btn-start').addEventListener('click', () => send({ type: 'start' }));
     $('#lobby-players').addEventListener('click', e => {
+      const vote = e.target.closest('button.kick-vote');
+      if (vote) {
+        send({ type: 'voteKick', playerId: vote.dataset.id });
+        return;
+      }
       const btn = e.target.closest('button.kick');
       if (btn && confirm('Remove this player from the room?')) send({ type: 'kick', playerId: btn.dataset.id });
+    });
+    $('#order-list').addEventListener('click', e => {
+      const vote = e.target.closest('button.kick-vote');
+      if (vote) send({ type: 'voteKick', playerId: vote.dataset.id });
     });
     $('#settings-form').addEventListener('input', settingsChanged);
     $('#settings-form').addEventListener('change', settingsChanged);

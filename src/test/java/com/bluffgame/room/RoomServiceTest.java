@@ -255,6 +255,38 @@ class RoomServiceTest {
     }
 
     @Test
+    void aMajorityCanVoteAPlayerOutEvenMidGame() {
+        RoomService.Joined host = service.create("Alice", "s1");
+        String code = host.room().code();
+        RoomService.Joined bob = service.join(code, "Bob", null, "s2");
+        assertThatThrownBy(() -> service.voteKick(code, host.player().id(), bob.player().id()))
+                .hasMessageContaining("at least three players");
+        RoomService.Joined carol = service.join(code, "Carol", null, "s3");
+        assertThatThrownBy(() -> service.voteKick(code, host.player().id(), host.player().id()))
+                .hasMessageContaining("against yourself");
+        service.updateSettings(code, host.player().id(), new GameSettings(1, 5, false, 0, 0, false));
+        service.startGame(code, host.player().id());
+
+        service.voteKick(code, host.player().id(), carol.player().id());
+        assertThat(host.room().players()).hasSize(3);
+        Map<String, Object> state = outbound.lastState(bob.player().id());
+        Map<?, ?> carolView = ((List<?>) state.get("players")).stream().map(p -> (Map<?, ?>) p)
+                .filter(p -> "Carol".equals(p.get("nickname"))).findFirst().orElseThrow();
+        assertThat(carolView.get("kickVotes")).isEqualTo(1L);
+        assertThat(carolView.get("kickNeeded")).isEqualTo(2);
+
+        service.voteKick(code, host.player().id(), carol.player().id()); // withdrawn
+        service.voteKick(code, host.player().id(), carol.player().id()); // cast again
+        service.voteKick(code, bob.player().id(), carol.player().id());
+
+        assertThat(host.room().players()).extracting(RoomPlayer::nickname).containsExactly("Alice", "Bob");
+        assertThat(outbound.of(carol.player().id(), "kicked")).hasSize(1);
+        assertThat(host.room().game().seat(carol.player().id()).left()).isTrue();
+        assertThat(host.room().phase()).isEqualTo(RoomPhase.PLAYING);
+        assertThat(host.room().kickVotes()).isEmpty();
+    }
+
+    @Test
     void cleanupDropsPlayersWhoNeverCameBack() {
         RoomService.Joined host = service.create("Alice", "s1");
         String code = host.room().code();

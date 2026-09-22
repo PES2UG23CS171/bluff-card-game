@@ -96,6 +96,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             case "vote" -> rooms.vote(code, playerId, msg.path("yes").asBoolean(false));
             case "chat" -> rooms.chat(code, playerId, msg.path("text").asText(""));
             case "kick" -> rooms.kick(code, playerId, msg.path("playerId").asText(""));
+            case "voteKick" -> rooms.voteKick(code, playerId, msg.path("playerId").asText(""));
             case "leave" -> rooms.leave(code, playerId);
             default -> throw new GameException("Unknown message type '" + type + "'");
         }

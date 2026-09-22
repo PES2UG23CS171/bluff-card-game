@@ -7,8 +7,12 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /** A lobby plus, once started, the game being played in it. Guarded by synchronising on the room. */
 public final class Room {
@@ -18,6 +22,7 @@ public final class Room {
     private final String code;
     private final List<RoomPlayer> players = new ArrayList<>();
     private final Deque<ChatMessage> chat = new ArrayDeque<>();
+    private final Map<String, Set<String>> kickVotes = new LinkedHashMap<>();
     private String hostId;
     private GameSettings settings = GameSettings.defaults();
     private BluffGame game;
@@ -101,6 +106,26 @@ public final class Room {
         while (chat.size() > CHAT_HISTORY) {
             chat.removeFirst();
         }
+    }
+
+    /** Votes to remove a player, keyed by the target's id. */
+    public Map<String, Set<String>> kickVotes() {
+        return kickVotes;
+    }
+
+    Set<String> kickVotesFor(String targetId) {
+        return kickVotes.computeIfAbsent(targetId, id -> new LinkedHashSet<>());
+    }
+
+    /** Forgets every vote by or against {@code playerId}. */
+    void dropKickVotes(String playerId) {
+        kickVotes.remove(playerId);
+        kickVotes.values().forEach(votes -> votes.remove(playerId));
+        kickVotes.values().removeIf(Set::isEmpty);
+    }
+
+    void clearKickVotes() {
+        kickVotes.clear();
     }
 
     public Instant lastActivity() {

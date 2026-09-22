@@ -25,6 +25,8 @@ create a room, share the code, play.
 - A play-order column shows who plays when, whose turn it is and how many cards everyone holds;
   spectators are listed there too and are dealt in when the next game starts.
 - Turn timer so a player who walks away is passed automatically instead of stalling the table.
+- Vote to remove a disruptive player, in the lobby or mid-game: a majority of the other players
+  (at least two votes) sends them out of the room.
 - Chat panel that doubles as a game log.
 - Sound effects for plays, deals, bluff calls and verdicts, with a mute button.
 - Animated dealing, plays, passes, bluff reveals and pot moves.
@@ -115,7 +117,7 @@ Client → server messages are JSON objects with a `type`:
 
 `create {nickname}`, `join {code, nickname, token?}`, `settings {settings}`, `start`,
 `play {cardIds, rank}`, `pass`, `callBluff`, `vote {yes}`, `chat {text}`, `kick {playerId}`,
-`endGame`, `leave`.
+`voteKick {playerId}`, `endGame`, `leave`.
 
 Server → client: `welcome {playerId, token, roomCode, nickname}`, `update {events, state}`,
 `chat {message}`, `chatHistory {messages}`, `kicked {message}`, `error {message, action}`.

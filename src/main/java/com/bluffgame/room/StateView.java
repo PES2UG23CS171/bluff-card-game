@@ -28,6 +28,10 @@ final class StateView {
 
         Map<String, Object> you = new LinkedHashMap<>();
         you.put("id", viewer.id());
+        you.put("kickVotes", room.kickVotes().entrySet().stream()
+                .filter(e -> e.getValue().contains(viewer.id()))
+                .map(Map.Entry::getKey)
+                .toList());
         you.put("nickname", viewer.nickname());
         you.put("host", room.isHost(viewer.id()));
         boolean seated = room.isSeated(viewer.id());
@@ -68,9 +72,23 @@ final class StateView {
             view.put("finishPlace", seated ? seat.finishPlace() : null);
             view.put("passed", seated && game.passedPlayerIds().contains(player.id()));
             view.put("vote", seated ? game.restartVotes().get(player.id()) : null);
+            java.util.Set<String> eligible = kickVoters(room, player.id());
+            java.util.Set<String> votes = room.kickVotes().getOrDefault(player.id(), java.util.Set.of());
+            view.put("kickVotes", votes.stream().filter(eligible::contains).count());
+            view.put("kickNeeded", RoomService.kickVotesNeeded(eligible.size()));
+            view.put("kickable", RoomService.kickVotesNeeded(eligible.size()) <= eligible.size());
             views.add(view);
         }
         return views;
+    }
+
+    private static java.util.Set<String> kickVoters(Room room, String targetId) {
+        return room.players().stream()
+                .filter(RoomPlayer::connected)
+                .filter(p -> !p.id().equals(targetId))
+                .filter(p -> room.game() == null || room.isSeated(p.id()))
+                .map(RoomPlayer::id)
+                .collect(java.util.stream.Collectors.toSet());
     }
 
     private static Map<String, Object> game(BluffGame game) {
