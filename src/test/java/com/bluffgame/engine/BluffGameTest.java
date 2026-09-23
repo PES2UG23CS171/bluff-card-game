@@ -120,7 +120,7 @@ class BluffGameTest {
     // ------------------------------------------------------------ passing
 
     @Test
-    void whenEveryoneElsePassesThePotIsSetAsideAndTheLastPlayerOpensTheNextRound() {
+    void thePotIsSetAsideOnceEveryoneIncludingTheLastPlayerHasPassed() {
         game.play("A", List.of(3), Rank.QUEEN);
         game.play("B", List.of(5), Rank.QUEEN);
         game.drainEvents();
@@ -128,6 +128,12 @@ class BluffGameTest {
         game.pass("C");
         assertThat(game.turnPlayerId()).isEqualTo("A");
         game.pass("A");
+        // Everyone else is out, so the turn comes back to B, who may add cards or pass.
+        assertThat(game.round()).isEqualTo(1);
+        assertThat(game.turnPlayerId()).isEqualTo("B");
+        assertThat(game.mustPlay()).isFalse();
+
+        game.pass("B");
 
         assertThat(game.potCardCount()).isZero();
         assertThat(game.setAsideCards()).isEqualTo(2);
@@ -136,8 +142,8 @@ class BluffGameTest {
         assertThat(game.currentRank()).isNull();
         assertThat(game.mustPlay()).isTrue();
         List<GameEvent> events = game.drainEvents();
-        assertThat(kinds(events)).containsExactly("pass", "turn", "pass", "potSetAside", "roundStart", "turn");
-        GameEvent roundStart = events.get(4);
+        assertThat(kinds(events)).containsExactly("pass", "turn", "pass", "turn", "pass", "potSetAside", "roundStart", "turn");
+        GameEvent roundStart = events.get(6);
         assertThat(roundStart.get("starterId")).isEqualTo("B");
         assertThat(roundStart.get("reason")).isEqualTo("allPassed");
     }
@@ -154,8 +160,12 @@ class BluffGameTest {
         assertThat(game.turnPlayerId()).isEqualTo("C"); // straight past B
 
         game.pass("C");
+        assertThat(game.round()).isEqualTo(1); // A has not passed, so the round goes on with A
+        assertThat(game.turnPlayerId()).isEqualTo("A");
 
-        assertThat(game.round()).isEqualTo(2); // B and C are out, so the round is over and A opens
+        game.pass("A");
+
+        assertThat(game.round()).isEqualTo(2); // now everyone has passed: A, who played last, opens
         assertThat(game.turnPlayerId()).isEqualTo("A");
         assertThat(game.setAsideCards()).isEqualTo(3);
         assertThat(game.passedPlayerIds()).isEmpty();
@@ -380,8 +390,14 @@ class BluffGameTest {
         assertThat(timed.turnPlayerId()).isEqualTo("C"); // A is skipped for the rest of the round
         timed.drainEvents();
         clock.addAndGet(10_000L);
-        assertThat(timed.expireTurn()).isTrue(); // C is passed too: everyone else is out, B opens again
+        assertThat(timed.expireTurn()).isTrue(); // C is passed too; B, who played last, gets the turn back
         assertThat(timed.drainEvents().get(0).get("opening")).isEqualTo(false);
+        assertThat(timed.round()).isEqualTo(1);
+        assertThat(timed.turnPlayerId()).isEqualTo("B");
+        assertThat(timed.mustPlay()).isFalse();
+
+        clock.addAndGet(10_000L);
+        assertThat(timed.expireTurn()).isTrue(); // B lets it run out as well: pot set aside, B opens
         assertThat(timed.round()).isEqualTo(2);
         assertThat(timed.turnPlayerId()).isEqualTo("B");
         assertThat(timed.setAsideCards()).isEqualTo(1);
@@ -405,8 +421,12 @@ class BluffGameTest {
         assertThat(game.turnPlayerId()).isEqualTo("C");
 
         game.pass("C");
-        // B is offline, so everybody who could pass has passed: pot set aside, A opens again.
-        assertThat(game.round()).isEqualTo(2);
+        // B is offline, so A is the only one left in the round and gets the turn back.
+        assertThat(game.round()).isEqualTo(1);
+        assertThat(game.turnPlayerId()).isEqualTo("A");
+
+        game.pass("A");
+        assertThat(game.round()).isEqualTo(2); // everyone who could pass has: pot set aside, A opens again
         assertThat(game.turnPlayerId()).isEqualTo("A");
         assertThat(game.setAsideCards()).isEqualTo(1);
 

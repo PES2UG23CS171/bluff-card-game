@@ -149,9 +149,16 @@ input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
 #order-panel h3 { margin: 0 0 8px; font-size: .78rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
 #order-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 #order-list li {
-  display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 10px;
+  display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 6px 8px; border-radius: 10px;
   background: var(--panel-2); border: 2px solid transparent; transition: border-color .2s, box-shadow .2s, opacity .2s;
 }
+.ord-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ord-bottom { display: flex; align-items: center; gap: 6px; padding-left: 22px; flex-wrap: wrap; }
+.ord-bottom .kick-vote { margin-left: auto; }
+#order-vote { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+.ov-title { font-weight: 800; font-size: .85rem; }
+.ov-tally { font-size: .78rem; color: var(--muted); }
+.ov-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
 #order-list li.turn { border-color: var(--accent); background: #3a2f12; box-shadow: 0 0 14px rgba(245,185,66,.35); }
 #order-list li.passed { opacity: .55; }
 #order-list li.done { opacity: .7; }
@@ -311,9 +318,12 @@ input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
 @media (max-width: 900px) {
   #game-body { flex-direction: column; }
   #order-panel { width: auto; margin: 10px 12px 0; padding: 6px 8px; flex-direction: row; overflow-x: auto; overflow-y: hidden; }
-  #order-panel h3, #order-watching, .ord-idx { display: none; }
+  #order-panel h3, #order-watching, #order-vote, .ord-idx { display: none; }
   #order-list { flex-direction: row; gap: 6px; }
-  #order-list li { flex-direction: column; gap: 2px; min-width: 66px; padding: 4px 6px; text-align: center; }
+  #order-list li { gap: 2px; min-width: 66px; padding: 4px 6px; text-align: center; }
+  .ord-top { flex-direction: column; gap: 2px; }
+  .ord-bottom { padding-left: 0; justify-content: center; }
+  .ord-bottom .kick-vote { margin-left: 0; }
   .ord-name { max-width: 66px; font-size: .72rem; }
   .ord-cards small { display: none; }
   .row-timer { font-size: .7rem; padding: 1px 6px; }

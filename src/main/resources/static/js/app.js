@@ -26,6 +26,8 @@
     reconnectTimer: null,
     windowRaf: null,
     unread: 0,
+    voteDismissed: false,
+    gameOverHidden: false,
   };
   window.App = App;
 
@@ -262,6 +264,8 @@
     App.state = state;
     const dealing = events.some(ev => ev.kind === 'deal');
     if (events.some(ev => ev.kind === 'roundStart')) App.chosenRank = null;
+    if (events.some(ev => ev.kind === 'gameOver' || ev.kind === 'deal')) App.gameOverHidden = false;
+    if (dealing) App.voteDismissed = false;
     if (dealing) {
       App.selected.clear();
       renderTable(state, { empty: true });
@@ -437,6 +441,7 @@
         appendLog(n(ev.playerId) + ' finished ' + ordinal(ev.place) + '!', true);
         break;
       case 'voteOpened':
+        App.voteDismissed = false;
         appendLog('Vote opened: restart now (a majority decides) or play on until one loser is left.');
         break;
       case 'vote':
@@ -796,19 +801,38 @@
       if (g && g.loserId === p.id) tags.push('<span class="tag loser ord-tag">loser</span>');
       const cards = opts && opts.empty ? 0 : p.cards;
       return '<li class="' + cls.join(' ') + '" data-id="' + p.id + '">'
+        + '<div class="ord-top">'
         + '<span class="ord-idx">' + (i + 1) + '</span>'
         + '<span class="avatar ord-avatar" style="background:' + avatarColor(p.id) + '">' + esc(p.nickname[0].toUpperCase()) + '</span>'
         + '<span class="ord-name">' + esc(p.nickname) + (p.id === App.me.id ? ' (you)' : '') + '</span>'
+        + '</div>'
+        + '<div class="ord-bottom">'
+        + '<span class="ord-cards">' + cards + '<small> ' + (cards === 1 ? 'card' : 'cards') + '</small></span>'
         + tags.join('')
-        + '<span class="ord-cards">' + cards + '<small> cards</small></span>'
         + '<span class="row-timer timer hidden"></span>'
         + kickVoteButton(p, state)
+        + '</div>'
         + '</li>';
     }).join('');
     const watching = state.players.filter(p => !p.seated);
     const el = $('#order-watching');
     el.classList.toggle('hidden', watching.length === 0);
     el.textContent = 'Joining the next game: ' + watching.map(p => p.nickname).join(', ');
+    renderOrderVote(state);
+  }
+
+  /** Compact restart-vote controls at the bottom of the order column, so the big panel can go away. */
+  function renderOrderVote(state) {
+    const g = state.game;
+    const box = $('#order-vote');
+    const show = !!(g && g.voteOpen && state.you.seated);
+    box.classList.toggle('hidden', !show);
+    if (!show) return;
+    const mine = g.votes[state.you.id];
+    $('.ov-title', box).textContent = g.phase === 'GAME_OVER' ? 'Play again?' : 'Restart vote';
+    $('.ov-tally', box).textContent = g.yesVotes + ' of ' + g.voters + ' said yes; ' + g.votesNeeded + ' needed';
+    $('.ov-yes', box).classList.toggle('active', mine === true);
+    $('.ov-no', box).classList.toggle('active', mine === false);
   }
 
   /** A "vote out" toggle for another player, showing how the vote stands. */
@@ -979,7 +1003,9 @@
     const hint = $('#turn-hint');
     if (!active) hint.textContent = myPlayer && myPlayer.finishPlace ? 'You are done. Sit back and watch.' : '';
     else if (myTurn && waiting) hint.textContent = 'Your turn: others may call bluff first...';
-    else if (myTurn) hint.textContent = g.mustPlay ? 'Your turn: open the round!' : 'Your turn: add ' + g.currentRank + 's or pass';
+    else if (myTurn && g.mustPlay) hint.textContent = 'Your turn: open the round!';
+    else if (myTurn && g.lastPlay && g.lastPlay.playerId === me.id) hint.textContent = 'Everyone else passed: add more ' + g.currentRank + 's, or pass to set the pot aside';
+    else if (myTurn) hint.textContent = 'Your turn: add ' + g.currentRank + 's or pass';
     else hint.textContent = '';
 
     $('#hand').classList.toggle('locked', !active);
@@ -1015,12 +1041,13 @@
   function renderVotePanel(state) {
     const g = state.game;
     const panel = $('#vote-panel');
-    const show = g && g.voteOpen && g.phase === 'PLAYING' && state.you.seated;
+    const mine = g ? g.votes[state.you.id] : null;
+    // The big panel only asks once; after a vote (or "decide later") the order column keeps the tally.
+    const show = !!(g && g.voteOpen && g.phase === 'PLAYING' && state.you.seated && mine == null && !App.voteDismissed);
     panel.classList.toggle('hidden', !show);
     if (!show) return;
     $('#vote-title').textContent = nameOf(g.finishOrder[0], state) + (g.finishOrder[0] === App.me.id ? ' finished first!' : ' finished first!');
     $('#vote-tally').textContent = g.yesVotes + ' of ' + g.voters + ' said yes; ' + g.votesNeeded + ' needed.';
-    const mine = g.votes[state.you.id];
     $('#btn-vote-yes').classList.toggle('active', mine === true);
     $('#btn-vote-no').classList.toggle('active', mine === false);
   }
@@ -1028,7 +1055,7 @@
   function renderGameOver(state) {
     const g = state.game;
     const panel = $('#gameover-panel');
-    const show = g && g.phase === 'GAME_OVER';
+    const show = !!(g && g.phase === 'GAME_OVER' && !App.gameOverHidden);
     panel.classList.toggle('hidden', !show);
     if (!show) return;
     const abandoned = !g.loserId && g.finishOrder.length === 0;
@@ -1145,6 +1172,18 @@
     $('#btn-call').addEventListener('click', () => send({ type: 'callBluff' }));
     $('#btn-vote-yes').addEventListener('click', () => send({ type: 'vote', yes: true }));
     $('#btn-vote-no').addEventListener('click', () => send({ type: 'vote', yes: false }));
+    $('#btn-vote-later').addEventListener('click', () => {
+      App.voteDismissed = true;
+      if (App.state) renderVotePanel(App.state);
+    });
+    $('#btn-gameover-hide').addEventListener('click', () => {
+      App.gameOverHidden = true;
+      if (App.state) renderGameOver(App.state);
+    });
+    $('#order-vote').addEventListener('click', e => {
+      const b = e.target.closest('button');
+      if (b) send({ type: 'vote', yes: b.classList.contains('ov-yes') });
+    });
     $('#btn-again-yes').addEventListener('click', () => send({ type: 'vote', yes: true }));
     $('#btn-again-no').addEventListener('click', () => send({ type: 'vote', yes: false }));
 

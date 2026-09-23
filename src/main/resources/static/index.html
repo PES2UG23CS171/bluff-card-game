@@ -131,6 +131,14 @@
       <h3>Play order</h3>
       <ol id="order-list"></ol>
       <div id="order-watching" class="hidden"></div>
+      <div id="order-vote" class="hidden">
+        <div class="ov-title"></div>
+        <div class="ov-tally"></div>
+        <div class="ov-buttons">
+          <button type="button" class="small primary ov-yes">Yes, restart</button>
+          <button type="button" class="small ov-no">Play on</button>
+        </div>
+      </div>
     </aside>
     <div id="table">
       <div id="seats"></div>
@@ -168,6 +176,7 @@
           <button id="btn-vote-no">Keep playing</button>
         </div>
         <p id="vote-tally" class="hint"></p>
+        <button id="btn-vote-later" class="ghost small">Decide later</button>
       </div>
     </div>
 
@@ -203,7 +212,10 @@
         <button id="btn-again-no">Not yet</button>
       </div>
       <p id="gameover-tally" class="hint"></p>
-      <button id="btn-back-lobby" class="ghost hidden">Back to lobby</button>
+      <div class="vote-buttons">
+        <button id="btn-back-lobby" class="ghost hidden">Back to lobby</button>
+        <button id="btn-gameover-hide" class="ghost">Hide this</button>
+      </div>
     </div>
   </section>
 

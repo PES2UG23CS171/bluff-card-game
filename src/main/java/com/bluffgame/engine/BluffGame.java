@@ -19,11 +19,11 @@ import java.util.function.LongSupplier;
  *
  * <p>A round starts with one player putting one or more face-down cards in the pot while
  * announcing a rank; everyone who follows in that round claims the same rank. Until the next
- * player acts, anyone still holding cards may call bluff:
- * the play is revealed, and whoever was wrong takes the whole pot. Players may pass instead
- * of playing; once everyone else has passed, the pot is set aside and the last player to
- * play opens a new round. Emptying your hand (and surviving the call window) means you are
- * done; the game continues until one player is left holding cards.
+ * player acts, anyone still holding cards may call bluff: the play is revealed, and whoever
+ * was wrong takes the whole pot. Players may pass instead of playing, which sits them out for
+ * the round; once everyone has passed, the last player to play included, the pot is set aside
+ * and that player opens a new round. Emptying your hand (and surviving the call window) means
+ * you are done; the game continues until one player is left holding cards.
  *
  * <p>Every mutating call appends {@link GameEvent}s that the caller drains with
  * {@link #drainEvents()}. The class is not thread-safe; callers serialise access per game.
@@ -225,7 +225,10 @@ public final class BluffGame {
         advanceTurn(seat);
     }
 
-    /** Sits the rest of this round out. Not allowed when the pot is empty. */
+    /**
+     * Sits the rest of this round out. Not allowed when the pot is empty. Once everyone has
+     * passed, the pot is set aside and whoever played last opens the next round.
+     */
     public void pass(String playerId) {
         ensurePlaying();
         Seat seat = requireSeat(playerId);
@@ -241,7 +244,7 @@ public final class BluffGame {
         }
         passedThisRound.add(playerId);
         events.add(new GameEvent("pass").with("playerId", playerId));
-        if (everyoneElsePassed()) {
+        if (everyonePassed()) {
             endRoundAllPassed();
             return;
         }
@@ -399,7 +402,7 @@ public final class BluffGame {
         if (phase == Phase.GAME_OVER) {
             return true;
         }
-        if (everyoneElsePassed()) {
+        if (everyonePassed()) {
             endRoundAllPassed();
             return true;
         }
@@ -447,8 +450,9 @@ public final class BluffGame {
             return;
         }
         if (next == from) {
-            // The turn came straight back: everybody else is out of this round.
-            endRoundAllPassed();
+            // Everybody else is out of this round: the last player may add more cards or pass to end it.
+            turnPlayerId = from.playerId;
+            emitTurn();
             return;
         }
         turnPlayerId = next.playerId;
@@ -456,7 +460,7 @@ public final class BluffGame {
     }
 
     private void skipTurn(Seat seat) {
-        if (!pot.isEmpty() && everyoneElsePassed()) {
+        if (!pot.isEmpty() && everyonePassed()) {
             endRoundAllPassed();
             return;
         }
@@ -520,12 +524,9 @@ public final class BluffGame {
                 .with("reason", abandoned ? "abandoned" : "finished"));
     }
 
-    private boolean everyoneElsePassed() {
-        return seats.stream()
-                .filter(Seat::canAct)
-                .map(Seat::playerId)
-                .filter(id -> lastPlay == null || !id.equals(lastPlay.playerId()))
-                .allMatch(passedThisRound::contains);
+    /** Every player still able to act has passed this round, whoever played last included. */
+    private boolean everyonePassed() {
+        return seats.stream().filter(Seat::canAct).map(Seat::playerId).allMatch(passedThisRound::contains);
     }
 
     private void emitTurn() {

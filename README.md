@@ -80,8 +80,9 @@ While working on the front-end, the `dev` profile serves the static files straig
    play is revealed: if it was honest the caller takes the entire pot, if it was a lie the liar
    does. The honest player (or the successful caller) then opens a new round.
 4. Otherwise the next player either adds cards to the pot claiming the round's rank, or
-   **passes**. Once everyone but the last player has passed, the pot is set aside and the last
-   player to play opens a new round.
+   **passes** and sits the round out. When everyone else has passed, the turn comes back to the
+   last player to play, who can keep adding cards (the others may still call bluff) or pass;
+   once everyone has passed, the pot is set aside and that player opens a new round.
 5. When you put down your last cards you are done as soon as the next player acts without
    calling (or calls and finds you honest). The first player out wins; the vote to restart opens
    at that moment and passes as soon as a majority says yes. Otherwise the game continues until a
