@@ -969,6 +969,7 @@
     const pass = $('#btn-pass');
     pass.disabled = !myTurn || App.busy || waiting || g.mustPlay;
     pass.title = g.mustPlay ? 'Whoever opens a round has to play' : '';
+    $('#btn-clear').classList.toggle('hidden', n === 0);
 
     const call = $('#btn-call');
     const canCall = active && g.challengeOpen && g.lastPlay && g.lastPlay.playerId !== me.id && !App.busy;
@@ -1048,6 +1049,13 @@
   }
 
   // ------------------------------------------------------------ actions
+
+  function clearSelection() {
+    if (!App.selected.size) return;
+    App.selected.clear();
+    if (App.state && App.state.you) renderHand(App.state.you.hand);
+    refreshControls();
+  }
 
   function playSelected() {
     const rank = effectiveRank();
@@ -1133,6 +1141,7 @@
 
     $('#btn-play').addEventListener('click', playSelected);
     $('#btn-pass').addEventListener('click', () => send({ type: 'pass' }));
+    $('#btn-clear').addEventListener('click', clearSelection);
     $('#btn-call').addEventListener('click', () => send({ type: 'callBluff' }));
     $('#btn-vote-yes').addEventListener('click', () => send({ type: 'vote', yes: true }));
     $('#btn-vote-no').addEventListener('click', () => send({ type: 'vote', yes: false }));
@@ -1165,6 +1174,7 @@
     document.addEventListener('keydown', e => {
       if (App.screen !== 'game' || e.target.tagName === 'INPUT') return;
       if (e.key === 'Enter' && !$('#btn-play').disabled) playSelected();
+      if (e.key === 'Escape') clearSelection();
       if (e.key === ' ' && !$('#btn-call').classList.contains('hidden')) {
         e.preventDefault();
         send({ type: 'callBluff' });

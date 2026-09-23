@@ -122,6 +122,9 @@ input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
   padding: 0 16px; background: var(--panel); gap: 10px;
 }
 .head-left { display: flex; align-items: center; gap: 12px; }
+.brand { display: flex; flex-direction: column; line-height: 1.05; padding-right: 12px; border-right: 1px solid var(--line); }
+.brand b { font-size: 1rem; letter-spacing: .1em; }
+.brand small { color: var(--muted); font-size: .66rem; letter-spacing: .02em; }
 .rank-label { font-weight: 700; color: var(--muted); white-space: nowrap; }
 .rank-label.set { color: var(--accent-2); }
 .timer {
@@ -358,6 +361,8 @@ input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
   .game-head button { padding: 6px 8px; font-size: .82rem; white-space: nowrap; }
   .head-center { font-size: .85rem; }
   #game-code { display: none; }
+  .brand small { display: none; }
+  .brand { padding-right: 8px; }
   .rank-label { font-size: .85rem; }
   .seat { width: 104px; }
   #rank-picker button { width: 34px; }

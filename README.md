@@ -45,6 +45,10 @@ Then open <http://localhost:8080>. Everyone else on the same network can join wi
 machine's LAN address, e.g. `http://192.168.1.20:8080`, or by pasting the room code.
 Use `--server.port=9000` (or `-Dspring-boot.run.arguments=--server.port=9000`) to change the port.
 
+Links shared in chat apps show the game's title, description and a preview image; the
+preview URLs are built from the address the request came in on, so they work through tunnels
+and proxies that set the usual `X-Forwarded-*` headers.
+
 To build a runnable jar:
 
 ```bash
