@@ -652,9 +652,11 @@
     for (let i = 0; i < count; i++) {
       const t = (i + 1) / (count + 1);
       // Small tables sit along the top; bigger ones spread further down the sides.
+      // Phones get a flatter arc that starts lower, clear of the order strip above the table.
+      const narrow = window.innerWidth <= 640;
       const spread = Math.min(0.5, 0.32 + Math.max(0, count - 4) * 0.09);
       const angle = Math.PI + spread - t * (Math.PI + 2 * spread);
-      positions.push({ x: 50 + 43 * Math.cos(angle), y: 50 - 38 * Math.sin(angle) });
+      positions.push({ x: 50 + (narrow ? 38 : 43) * Math.cos(angle), y: (narrow ? 44 : 50) - (narrow ? 28 : 38) * Math.sin(angle) });
     }
     return positions;
   }
@@ -864,7 +866,8 @@
     const cardW = probe && probe.offsetWidth ? probe.offsetWidth : (compact ? 58 : 74);
     const cardH = probe && probe.offsetHeight ? probe.offsetHeight : (compact ? 82 : 104);
     const width = hand.clientWidth || 600;
-    const spacing = n > 1 ? Math.min(cardW * 0.62, (width - cardW - 8) / (n - 1)) : 0;
+    const margin = window.innerWidth <= 640 ? 28 : 8; // rotated edge cards poke past the layout box
+    const spacing = n > 1 ? Math.min(cardW * 0.62, (width - cardW - margin) / (n - 1)) : 0;
     const startX = (width - ((n - 1) * spacing + cardW)) / 2;
     return { compact, cardW, cardH, spacing, startX };
   }
@@ -899,7 +902,7 @@
       keep.add(card.id);
       const mid = (n - 1) / 2;
       // A gentle arc: the outer cards tilt and sit a little lower, but never far enough to reach the buttons.
-      const rot = n > 1 ? (i - mid) * Math.min(2.6, 26 / n) : 0;
+      const rot = n > 1 ? (i - mid) * Math.min(window.innerWidth <= 640 ? 1.8 : 2.6, 26 / n) : 0;
       const lift = Math.min(14, Math.pow(Math.abs(i - mid), 2) * Math.min(0.9, 12 / n));
       c.style.left = (startX + i * spacing) + 'px';
       c.style.zIndex = i;
@@ -1208,7 +1211,7 @@
       if (!document.hidden) FX.clearLayer();
     });
     window.addEventListener('resize', () => {
-      if (App.state && App.screen === 'game' && App.state.you.seated) renderHand(App.state.you.hand);
+      if (App.state && App.screen === 'game') renderTable(App.state);
     });
     document.addEventListener('keydown', e => {
       if (App.screen !== 'game' || e.target.tagName === 'INPUT') return;

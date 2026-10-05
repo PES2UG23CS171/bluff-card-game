@@ -367,6 +367,22 @@ input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
 #reconnecting { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); background: #7a4a1f; padding: 8px 16px; border-radius: 10px; z-index: 80; font-weight: 700; }
 
 @media (max-width: 640px) {
+  .logo { font-size: 2.2rem; letter-spacing: .12em; white-space: nowrap; }
+  .logo .suit { font-size: 1.6rem; }
+  .home-card { padding: 26px 22px; }
+  .lobby { padding: 12px; }
+  .lobby-head button { white-space: nowrap; font-size: .9rem; padding: 8px 10px; }
+  .room-id .code { font-size: 1.3rem; }
+  #settings-form { grid-template-columns: 1fr; }
+  #toasts { top: auto; bottom: 215px; }
+  #center { top: 58%; }
+  #round-rank { left: calc(50% + 60px); width: 54px; height: 76px; }
+  #round-rank .rr-rank { font-size: 1.8rem; }
+  .seat { width: 96px; padding: 6px 4px 4px; }
+  .seat-pile { display: none; }
+  .seat-name { font-size: .8rem; max-width: 88px; }
+  #my-area { padding: 4px 10px 8px; }
+  #my-info { flex-wrap: wrap; row-gap: 2px; gap: 8px; }
   .game-head { padding: 0 8px; gap: 6px; }
   .game-head button { padding: 6px 8px; font-size: .82rem; white-space: nowrap; }
   .head-center { font-size: .85rem; }
